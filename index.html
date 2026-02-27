@@ -4,79 +4,79 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>マイウォーキングアプリ</title>
-    
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    
     <style>
-        #map { height: 400px; width: 100%; max-width: 600px; margin-top: 20px; border: 2px solid #ccc; }
-        body { font-family: sans-serif; padding: 20px; background-color: #f0f0f0; }
-        .data-box { background: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        body { font-family: sans-serif; padding: 20px; background-color: #f8f9fa; color: #333; }
+        #map { height: 350px; width: 100%; max-width: 600px; border-radius: 15px; border: 2px solid #ddd; margin-bottom: 20px; }
+        .card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        h1 { font-size: 1.5em; color: #2c3e50; margin-bottom: 15px; }
+        .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .data-item { background: #eef2f7; padding: 10px; border-radius: 10px; text-align: center; }
+        .data-value { font-size: 1.2em; font-weight: bold; color: #3498db; }
+        input { width: 60px; padding: 5px; border-radius: 5px; border: 1px solid #ccc; text-align: center; }
+        .calorie-box { background: #fff3cd; border: 1px solid #ffeeba; grid-column: span 2; margin-top: 10px; }
     </style>
 </head>
 <body>
 
-    <div class="data-box">
-        <h1>マイウォーキングアプリ</h1>
-        <p>歩数： <strong><span id="steps-display">---</span></strong> 歩</p>
-        <p>上がった階数： <strong><span id="stairs-display">---</span></strong> 階</p>
+    <div class="card">
+        <h1>飯塚指揮官の健康ログ</h1>
+        <div style="margin-bottom: 15px;">
+            体重: <input type="number" id="weight-input" value="65"> kg 
+            <small style="color: gray;">(計算に使用します)</small>
+        </div>
+
+        <div class="data-grid">
+            <div class="data-item">歩数<br><span id="steps-display" class="data-value">0</span> 歩</div>
+            <div class="data-item">階段<br><span id="stairs-display" class="data-value">0</span> 階</div>
+            <div class="data-item calorie-box">推定消費カロリー<br><span id="calories-display" class="data-value" style="color: #e67e22;">0</span> kcal</div>
+        </div>
     </div>
 
-    <h2>ウォーキングルート</h2>
     <div id="map"></div>
-    <p id="status" style="font-size: 0.8em; color: gray;">GPS待機中...</p>
+    <p id="status" style="font-size: 0.8em; color: gray; text-align: center;">GPS待機中...</p>
 
     <script>
-        // --- 1. 歩数と階数の表示（ショートカット連携） ---
+        // --- 1. データ取得とカロリー計算 ---
         const urlParams = new URLSearchParams(window.location.search);
-        const steps = urlParams.get('steps');
-        const stairs = urlParams.get('stairs');
-        if (steps !== null) document.getElementById('steps-display').innerText = steps;
-        if (stairs !== null) document.getElementById('stairs-display').innerText = stairs;
+        const steps = parseFloat(urlParams.get('steps')) || 0;
+        const stairs = parseFloat(urlParams.get('stairs')) || 0;
 
-        // --- 2. 地図の初期設定 ---
+        document.getElementById('steps-display').innerText = steps.toLocaleString();
+        document.getElementById('stairs-display').innerText = stairs.toLocaleString();
+
+        function calculateCalories() {
+            const weight = parseFloat(document.getElementById('weight-input').value) || 65;
+            // 計算式: (歩数×体重×0.0005) + (階数×体重×0.1)
+            const walkCal = steps * weight * 0.0005;
+            const stairCal = stairs * weight * 0.1;
+            const totalCal = Math.round(walkCal + stairCal);
+            document.getElementById('calories-display').innerText = totalCal.toLocaleString();
+        }
+
+        // 体重を変えたらすぐ再計算
+        document.getElementById('weight-input').addEventListener('input', calculateCalories);
+        calculateCalories(); // 初回実行
+
+        // --- 2. 地図とGPS追跡（前回と同じ） ---
         const map = L.map('map').setView([35.681236, 139.767125], 15);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors'
-        }).addTo(map);
-
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
         const marker = L.marker([35.681236, 139.767125]).addTo(map);
-        
-        // ★赤い線を引くための準備
-        let pathPoints = []; // 歩いた場所のリストを入れる箱
+        let pathPoints = [];
         const walkingPath = L.polyline([], { color: 'red', weight: 5 }).addTo(map);
 
-        // --- 3. GPSで追跡開始！ ---
         if (navigator.geolocation) {
-            // getCurrentPosition（1回だけ）から watchPosition（動きを監視）に変更
-            navigator.geolocation.watchPosition(
-                function(position) {
-                    const lat = position.coords.latitude;
-                    const lng = position.coords.longitude;
-                    const currentPos = [lat, lng];
-
-                    document.getElementById('status').innerText = "追跡中...";
-
-                    // 1. 地図とピンを現在地に移動
-                    map.setView(currentPos);
-                    marker.setLatLng(currentPos);
-
-                    // 2. 歩いた場所のリストに今の地点を追加
-                    pathPoints.push(currentPos);
-
-                    // 3. 赤い線を更新する
-                    walkingPath.setLatLngs(pathPoints);
-                },
-                function(error) {
-                    document.getElementById('status').innerText = "GPSエラー";
-                },
-                {
-                    enableHighAccuracy: true, // 高精度なGPSを使用
-                    maximumAge: 0            // 常に最新の位置を取得
-                }
-            );
-        } else {
-            alert("お使いのブラウザはGPSに対応していません。");
+            navigator.geolocation.watchPosition(function(position) {
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+                const currentPos = [lat, lng];
+                document.getElementById('status').innerText = "ルート追跡中...";
+                map.setView(currentPos);
+                marker.setLatLng(currentPos);
+                pathPoints.push(currentPos);
+                walkingPath.setLatLngs(pathPoints);
+            }, function(e){}, { enableHighAccuracy: true });
         }
     </script>
 </body>
