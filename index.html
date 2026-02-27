@@ -14,24 +14,22 @@
         .data-item { background: #eef2f7; padding: 10px; border-radius: 10px; text-align: center; }
         .data-value { font-size: 1.2em; font-weight: bold; color: #3498db; }
         .calorie-box { background: #fff3cd; border: 1px solid #ffeeba; grid-column: span 2; }
-        
-        /* 保存ボタンのスタイル */
-        #save-btn { 
-            display: block; width: 100%; padding: 15px; border-radius: 10px; 
-            border: none; background: #27ae60; color: white; 
-            font-size: 1.1em; font-weight: bold; margin-bottom: 20px;
-            box-shadow: 0 4px 0 #1e8449;
-        }
-        #save-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #1e8449; }
-
+        #save-btn { display: block; width: 100%; padding: 15px; border-radius: 10px; border: none; background: #27ae60; color: white; font-size: 1.1em; font-weight: bold; margin-bottom: 20px; box-shadow: 0 4px 0 #1e8449; }
         #map { height: 300px; width: 100%; border-radius: 15px; border: 2px solid #ddd; margin-bottom: 20px; }
         .history-item { background: white; padding: 12px; border-radius: 10px; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border-left: 5px solid #27ae60; }
+        
+        /* スリープ防止の状態を表示するランプ */
+        #wake-lock-status { font-size: 0.8em; text-align: center; margin-bottom: 10px; padding: 5px; border-radius: 20px; }
+        .status-on { background: #d4edda; color: #155724; }
+        .status-off { background: #f8d7da; color: #721c24; }
     </style>
 </head>
 <body>
 
     <div class="card">
         <h1>飯塚指揮官の健康ログ</h1>
+        <div id="wake-lock-status" class="status-off">スリープ防止：OFF (画面をタップ)</div>
+
         <div style="margin-bottom: 15px;">
             体重: <input type="number" id="weight-input" value="65" style="width: 60px; padding: 5px;"> kg
         </div>
@@ -51,7 +49,29 @@
     <div id="history-list"></div>
 
     <script>
-        // 1. データの読み込みと計算
+        // --- 1. スリープ防止機能 (Wake Lock) ---
+        let wakeLock = null;
+
+        async function requestWakeLock() {
+            try {
+                wakeLock = await navigator.wakeLock.request('screen');
+                const statusDiv = document.getElementById('wake-lock-status');
+                statusDiv.innerText = "スリープ防止：ON (計測中)";
+                statusDiv.className = "status-on";
+                
+                wakeLock.addEventListener('release', () => {
+                    console.log('Wake Lock was released');
+                });
+            } catch (err) {
+                console.error(`${err.name}, ${err.message}`);
+            }
+        }
+
+        // 画面のどこかをタップしたらスリープ防止を開始するようにする
+        // (ブラウザのルールで、ユーザーが操作した時じゃないと起動できないため)
+        document.body.addEventListener('click', requestWakeLock);
+
+        // --- 2. データの読み取りと表示 (前と同じ) ---
         const urlParams = new URLSearchParams(window.location.search);
         const steps = parseFloat(urlParams.get('steps')) || 0;
         const stairs = parseFloat(urlParams.get('stairs')) || 0;
@@ -66,23 +86,19 @@
         document.getElementById('weight-input').addEventListener('input', calculateCalories);
         calculateCalories();
 
-        // 2. 保存機能
         function saveCurrentData() {
             const date = new Date().toLocaleDateString();
             const weight = document.getElementById('weight-input').value;
             const calories = document.getElementById('calories-display').innerText;
             const newData = { date, steps, stairs, weight, calories };
-
             let history = JSON.parse(localStorage.getItem('walkingHistory')) || [];
             const index = history.findIndex(item => item.date === date);
             if (index > -1) history[index] = newData; else history.unshift(newData);
-
             localStorage.setItem('walkingHistory', JSON.stringify(history));
             alert("記録を保存しました！");
             displayHistory();
         }
 
-        // 3. 履歴表示
         function displayHistory() {
             const history = JSON.parse(localStorage.getItem('walkingHistory')) || [];
             const list = document.getElementById('history-list');
@@ -95,7 +111,7 @@
         }
         displayHistory();
 
-        // 4. 地図（簡易版GPS追跡）
+        // --- 3. 地図とGPS追跡 ---
         const map = L.map('map').setView([35.6812, 139.7671], 15);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
         const marker = L.marker([35.6812, 139.7671]).addTo(map);
