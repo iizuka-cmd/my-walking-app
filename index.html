@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>マイウォーキングアプリ</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <style>
+        #map { 
+            height: 400px; 
+            width: 100%;   
+            max-width: 600px;
+            margin-top: 20px;
+            border: 2px solid #ccc; 
+        }
+    </style>
+</head>
+<body>
+
+    <h1>私のウォーキングアプリ</h1>
+    <p>ここに今日の歩数や地図が表示されます。</p>
+    
+    <h2>今日の記録</h2>
+    <p>歩数： <span id="steps-display">---</span> 歩</p>
+    <p>上がった階数： <span id="stairs-display">---</span> 階</p>
+
+    <h2>ウォーキングマップ</h2>
+    <div id="map"></div>
+
+    <script>
+        // --- 1. 歩数と階数を表示する ---
+        const urlParams = new URLSearchParams(window.location.search);
+        const steps = urlParams.get('steps');
+        const stairs = urlParams.get('stairs');
+
+        if (steps !== null) {
+            document.getElementById('steps-display').innerText = steps;
+        }
+        if (stairs !== null) {
+            document.getElementById('stairs-display').innerText = stairs;
+        }
+
+        // --- 2. 地図の準備 ---
+        const map = L.map('map').setView([35.681236, 139.767125], 14); 
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        const marker = L.marker([35.681236, 139.767125]).addTo(map)
+            .bindPopup('現在地を探しています...')
+            .openPopup();
+
+        // --- 3. GPSを取得して現在地に移動する（ここが新機能！） ---
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                function(position) {
+                    // 取得成功！緯度と経度を取り出す
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+
+                    // 地図を現在地にピタッと移動させる（15はズームの倍率です）
+                    map.setView([lat, lng], 15);
+                    
+                    // ピンも現在地に動かして、吹き出しの文字を変える
+                    marker.setLatLng([lat, lng])
+                          .bindPopup('あなたの現在地！')
+                          .openPopup();
+                },
+                function(error) {
+                    // 失敗した時（許可されなかった等）
+                    alert("位置情報が取得できませんでした。");
+                }
+            );
+        }
+    </script>
+
+</body>
+</html>
