@@ -8,16 +8,24 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         body { font-family: sans-serif; padding: 20px; background-color: #f8f9fa; color: #333; max-width: 600px; margin: auto; }
-        #map { height: 300px; width: 100%; border-radius: 15px; border: 2px solid #ddd; margin-bottom: 20px; }
         .card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
+        h1 { font-size: 1.2em; margin-bottom: 15px; border-bottom: 2px solid #27ae60; padding-bottom: 5px; }
+        .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
         .data-item { background: #eef2f7; padding: 10px; border-radius: 10px; text-align: center; }
         .data-value { font-size: 1.2em; font-weight: bold; color: #3498db; }
         .calorie-box { background: #fff3cd; border: 1px solid #ffeeba; grid-column: span 2; }
-        button { width: 100%; padding: 12px; border-radius: 10px; border: none; background: #27ae60; color: white; font-size: 1em; font-weight: bold; cursor: pointer; }
-        button:active { background: #219150; }
-        .history-list { list-style: none; padding: 0; }
-        .history-item { background: white; padding: 15px; border-radius: 10px; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); font-size: 0.9em; border-left: 5px solid #27ae60; }
+        
+        /* 保存ボタンのスタイル */
+        #save-btn { 
+            display: block; width: 100%; padding: 15px; border-radius: 10px; 
+            border: none; background: #27ae60; color: white; 
+            font-size: 1.1em; font-weight: bold; margin-bottom: 20px;
+            box-shadow: 0 4px 0 #1e8449;
+        }
+        #save-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #1e8449; }
+
+        #map { height: 300px; width: 100%; border-radius: 15px; border: 2px solid #ddd; margin-bottom: 20px; }
+        .history-item { background: white; padding: 12px; border-radius: 10px; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border-left: 5px solid #27ae60; }
     </style>
 </head>
 <body>
@@ -25,7 +33,7 @@
     <div class="card">
         <h1>飯塚指揮官の健康ログ</h1>
         <div style="margin-bottom: 15px;">
-            体重: <input type="number" id="weight-input" value="65" style="width: 50px;"> kg
+            体重: <input type="number" id="weight-input" value="65" style="width: 60px; padding: 5px;"> kg
         </div>
 
         <div class="data-grid">
@@ -34,19 +42,16 @@
             <div class="data-item calorie-box">推定消費カロリー<br><span id="calories-display" class="data-value" style="color: #e67e22;">0</span> kcal</div>
         </div>
         
-        <button onclick="saveCurrentData()">今日の記録を保存する</button>
+        <button id="save-btn" onclick="saveCurrentData()">今日の記録を保存する</button>
     </div>
 
     <div id="map"></div>
     
     <h2>過去の履歴</h2>
-    <div id="history-container">
-        <ul id="history-list" class="history-list">
-            </ul>
-    </div>
+    <div id="history-list"></div>
 
     <script>
-        // --- 1. 初期データ取得と表示 ---
+        // 1. データの読み込みと計算
         const urlParams = new URLSearchParams(window.location.search);
         const steps = parseFloat(urlParams.get('steps')) || 0;
         const stairs = parseFloat(urlParams.get('stairs')) || 0;
@@ -55,70 +60,54 @@
 
         function calculateCalories() {
             const weight = parseFloat(document.getElementById('weight-input').value) || 65;
-            const walkCal = steps * weight * 0.0005;
-            const stairCal = stairs * weight * 0.1;
-            const totalCal = Math.round(walkCal + stairCal);
+            const totalCal = Math.round((steps * weight * 0.0005) + (stairs * weight * 0.1));
             document.getElementById('calories-display').innerText = totalCal.toLocaleString();
-            return totalCal;
         }
         document.getElementById('weight-input').addEventListener('input', calculateCalories);
         calculateCalories();
 
-        // --- 2. データの保存機能 ---
+        // 2. 保存機能
         function saveCurrentData() {
-            const date = new Date().toLocaleDateString(); // 今日の日付
+            const date = new Date().toLocaleDateString();
             const weight = document.getElementById('weight-input').value;
             const calories = document.getElementById('calories-display').innerText;
-            
             const newData = { date, steps, stairs, weight, calories };
 
-            // すでに保存されているデータを取得（なければ空のリスト）
             let history = JSON.parse(localStorage.getItem('walkingHistory')) || [];
-            
-            // 同じ日付のデータがあれば上書き、なければ新しく追加
             const index = history.findIndex(item => item.date === date);
-            if (index > -1) {
-                history[index] = newData;
-            } else {
-                history.unshift(newData); // リストの先頭に追加
-            }
+            if (index > -1) history[index] = newData; else history.unshift(newData);
 
             localStorage.setItem('walkingHistory', JSON.stringify(history));
-            alert("保存しました！");
+            alert("記録を保存しました！");
             displayHistory();
         }
 
-        // --- 3. 履歴の表示機能 ---
+        // 3. 履歴表示
         function displayHistory() {
             const history = JSON.parse(localStorage.getItem('walkingHistory')) || [];
-            const listElement = document.getElementById('history-list');
-            listElement.innerHTML = ""; // 一旦クリア
-
-            history.forEach(item => {
-                const li = document.createElement('li');
-                li.className = "history-item";
-                li.innerHTML = `
+            const list = document.getElementById('history-list');
+            list.innerHTML = history.map(item => `
+                <div class="history-item">
                     <strong>${item.date}</strong><br>
-                    ${item.steps}歩 / ${item.stairs}階 / ${item.calories}kcal (${item.weight}kg)
-                `;
-                listElement.appendChild(li);
-            });
+                    ${item.steps.toLocaleString()}歩 / ${item.stairs}階 / ${item.calories}kcal (${item.weight}kg)
+                </div>
+            `).join('');
         }
-        displayHistory(); // 起動時に履歴を表示
+        displayHistory();
 
-        // --- 4. 地図とGPS（前回と同じ） ---
-        const map = L.map('map').setView([35.681236, 139.767125], 15);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
-        const marker = L.marker([35.681236, 139.767125]).addTo(map);
+        // 4. 地図（簡易版GPS追跡）
+        const map = L.map('map').setView([35.6812, 139.7671], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        const marker = L.marker([35.6812, 139.7671]).addTo(map);
         let pathPoints = [];
         const walkingPath = L.polyline([], { color: 'red', weight: 5 }).addTo(map);
+
         if (navigator.geolocation) {
-            navigator.geolocation.watchPosition(function(position) {
-                const lat = position.coords.latitude; const lng = position.coords.longitude;
-                const currentPos = [lat, lng];
-                map.setView(currentPos); marker.setLatLng(currentPos);
-                pathPoints.push(currentPos); walkingPath.setLatLngs(pathPoints);
-            }, function(e){}, { enableHighAccuracy: true });
+            navigator.geolocation.watchPosition(p => {
+                const pos = [p.coords.latitude, p.coords.longitude];
+                map.setView(pos); marker.setLatLng(pos);
+                pathPoints.push(pos); walkingPath.setLatLngs(pathPoints);
+            }, null, { enableHighAccuracy: true });
         }
     </script>
 </body>
