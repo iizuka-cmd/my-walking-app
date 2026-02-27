@@ -7,15 +7,17 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { font-family: sans-serif; padding: 20px; background-color: #f8f9fa; color: #333; }
-        #map { height: 350px; width: 100%; max-width: 600px; border-radius: 15px; border: 2px solid #ddd; margin-bottom: 20px; }
+        body { font-family: sans-serif; padding: 20px; background-color: #f8f9fa; color: #333; max-width: 600px; margin: auto; }
+        #map { height: 300px; width: 100%; border-radius: 15px; border: 2px solid #ddd; margin-bottom: 20px; }
         .card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        h1 { font-size: 1.5em; color: #2c3e50; margin-bottom: 15px; }
-        .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
         .data-item { background: #eef2f7; padding: 10px; border-radius: 10px; text-align: center; }
         .data-value { font-size: 1.2em; font-weight: bold; color: #3498db; }
-        input { width: 60px; padding: 5px; border-radius: 5px; border: 1px solid #ccc; text-align: center; }
-        .calorie-box { background: #fff3cd; border: 1px solid #ffeeba; grid-column: span 2; margin-top: 10px; }
+        .calorie-box { background: #fff3cd; border: 1px solid #ffeeba; grid-column: span 2; }
+        button { width: 100%; padding: 12px; border-radius: 10px; border: none; background: #27ae60; color: white; font-size: 1em; font-weight: bold; cursor: pointer; }
+        button:active { background: #219150; }
+        .history-list { list-style: none; padding: 0; }
+        .history-item { background: white; padding: 15px; border-radius: 10px; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); font-size: 0.9em; border-left: 5px solid #27ae60; }
     </style>
 </head>
 <body>
@@ -23,8 +25,7 @@
     <div class="card">
         <h1>飯塚指揮官の健康ログ</h1>
         <div style="margin-bottom: 15px;">
-            体重: <input type="number" id="weight-input" value="65"> kg 
-            <small style="color: gray;">(計算に使用します)</small>
+            体重: <input type="number" id="weight-input" value="65" style="width: 50px;"> kg
         </div>
 
         <div class="data-grid">
@@ -32,50 +33,91 @@
             <div class="data-item">階段<br><span id="stairs-display" class="data-value">0</span> 階</div>
             <div class="data-item calorie-box">推定消費カロリー<br><span id="calories-display" class="data-value" style="color: #e67e22;">0</span> kcal</div>
         </div>
+        
+        <button onclick="saveCurrentData()">今日の記録を保存する</button>
     </div>
 
     <div id="map"></div>
-    <p id="status" style="font-size: 0.8em; color: gray; text-align: center;">GPS待機中...</p>
+    
+    <h2>過去の履歴</h2>
+    <div id="history-container">
+        <ul id="history-list" class="history-list">
+            </ul>
+    </div>
 
     <script>
-        // --- 1. データ取得とカロリー計算 ---
+        // --- 1. 初期データ取得と表示 ---
         const urlParams = new URLSearchParams(window.location.search);
         const steps = parseFloat(urlParams.get('steps')) || 0;
         const stairs = parseFloat(urlParams.get('stairs')) || 0;
-
         document.getElementById('steps-display').innerText = steps.toLocaleString();
         document.getElementById('stairs-display').innerText = stairs.toLocaleString();
 
         function calculateCalories() {
             const weight = parseFloat(document.getElementById('weight-input').value) || 65;
-            // 計算式: (歩数×体重×0.0005) + (階数×体重×0.1)
             const walkCal = steps * weight * 0.0005;
             const stairCal = stairs * weight * 0.1;
             const totalCal = Math.round(walkCal + stairCal);
             document.getElementById('calories-display').innerText = totalCal.toLocaleString();
+            return totalCal;
+        }
+        document.getElementById('weight-input').addEventListener('input', calculateCalories);
+        calculateCalories();
+
+        // --- 2. データの保存機能 ---
+        function saveCurrentData() {
+            const date = new Date().toLocaleDateString(); // 今日の日付
+            const weight = document.getElementById('weight-input').value;
+            const calories = document.getElementById('calories-display').innerText;
+            
+            const newData = { date, steps, stairs, weight, calories };
+
+            // すでに保存されているデータを取得（なければ空のリスト）
+            let history = JSON.parse(localStorage.getItem('walkingHistory')) || [];
+            
+            // 同じ日付のデータがあれば上書き、なければ新しく追加
+            const index = history.findIndex(item => item.date === date);
+            if (index > -1) {
+                history[index] = newData;
+            } else {
+                history.unshift(newData); // リストの先頭に追加
+            }
+
+            localStorage.setItem('walkingHistory', JSON.stringify(history));
+            alert("保存しました！");
+            displayHistory();
         }
 
-        // 体重を変えたらすぐ再計算
-        document.getElementById('weight-input').addEventListener('input', calculateCalories);
-        calculateCalories(); // 初回実行
+        // --- 3. 履歴の表示機能 ---
+        function displayHistory() {
+            const history = JSON.parse(localStorage.getItem('walkingHistory')) || [];
+            const listElement = document.getElementById('history-list');
+            listElement.innerHTML = ""; // 一旦クリア
 
-        // --- 2. 地図とGPS追跡（前回と同じ） ---
+            history.forEach(item => {
+                const li = document.createElement('li');
+                li.className = "history-item";
+                li.innerHTML = `
+                    <strong>${item.date}</strong><br>
+                    ${item.steps}歩 / ${item.stairs}階 / ${item.calories}kcal (${item.weight}kg)
+                `;
+                listElement.appendChild(li);
+            });
+        }
+        displayHistory(); // 起動時に履歴を表示
+
+        // --- 4. 地図とGPS（前回と同じ） ---
         const map = L.map('map').setView([35.681236, 139.767125], 15);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
         const marker = L.marker([35.681236, 139.767125]).addTo(map);
         let pathPoints = [];
         const walkingPath = L.polyline([], { color: 'red', weight: 5 }).addTo(map);
-
         if (navigator.geolocation) {
             navigator.geolocation.watchPosition(function(position) {
-                const lat = position.coords.latitude;
-                const lng = position.coords.longitude;
+                const lat = position.coords.latitude; const lng = position.coords.longitude;
                 const currentPos = [lat, lng];
-                document.getElementById('status').innerText = "ルート追跡中...";
-                map.setView(currentPos);
-                marker.setLatLng(currentPos);
-                pathPoints.push(currentPos);
-                walkingPath.setLatLngs(pathPoints);
+                map.setView(currentPos); marker.setLatLng(currentPos);
+                pathPoints.push(currentPos); walkingPath.setLatLngs(pathPoints);
             }, function(e){}, { enableHighAccuracy: true });
         }
     </script>
