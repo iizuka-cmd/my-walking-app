@@ -10,15 +10,16 @@
         body { font-family: sans-serif; padding: 20px; background-color: #f8f9fa; color: #333; max-width: 600px; margin: auto; }
         .card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-bottom: 20px; }
         h1 { font-size: 1.2em; margin-bottom: 15px; border-bottom: 2px solid #27ae60; padding-bottom: 5px; }
-        .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+        .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
         .data-item { background: #eef2f7; padding: 10px; border-radius: 10px; text-align: center; }
         .data-value { font-size: 1.2em; font-weight: bold; color: #3498db; }
         .calorie-box { background: #fff3cd; border: 1px solid #ffeeba; grid-column: span 2; }
-        #save-btn { display: block; width: 100%; padding: 15px; border-radius: 10px; border: none; background: #27ae60; color: white; font-size: 1.1em; font-weight: bold; margin-bottom: 20px; box-shadow: 0 4px 0 #1e8449; }
+        input[type="number"] { width: 50px; padding: 5px; border-radius: 5px; border: 1px solid #ccc; }
+        button { width: 100%; padding: 12px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        #save-btn { background: #27ae60; color: white; }
+        #route-btn { background: #3498db; color: white; margin-bottom: 10px; }
         #map { height: 300px; width: 100%; border-radius: 15px; border: 2px solid #ddd; margin-bottom: 20px; }
         .history-item { background: white; padding: 12px; border-radius: 10px; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border-left: 5px solid #27ae60; }
-        
-        /* スリープ防止の状態を表示するランプ */
         #wake-lock-status { font-size: 0.8em; text-align: center; margin-bottom: 10px; padding: 5px; border-radius: 20px; }
         .status-on { background: #d4edda; color: #155724; }
         .status-off { background: #f8d7da; color: #721c24; }
@@ -30,8 +31,13 @@
         <h1>飯塚指揮官の健康ログ</h1>
         <div id="wake-lock-status" class="status-off">スリープ防止：OFF (画面をタップ)</div>
 
+        <div style="margin-bottom: 10px;">
+            目標距離: <input type="number" id="goal-dist" value="1" step="0.5"> km
+            <button id="route-btn" onclick="generateGoalRoute()">おすすめルートを表示</button>
+        </div>
+
         <div style="margin-bottom: 15px;">
-            体重: <input type="number" id="weight-input" value="65" style="width: 60px; padding: 5px;"> kg
+            体重: <input type="number" id="weight-input" value="65"> kg
         </div>
 
         <div class="data-grid">
@@ -49,29 +55,19 @@
     <div id="history-list"></div>
 
     <script>
-        // --- 1. スリープ防止機能 (Wake Lock) ---
+        // --- 1. スリープ防止 ---
         let wakeLock = null;
-
         async function requestWakeLock() {
             try {
                 wakeLock = await navigator.wakeLock.request('screen');
                 const statusDiv = document.getElementById('wake-lock-status');
                 statusDiv.innerText = "スリープ防止：ON (計測中)";
                 statusDiv.className = "status-on";
-                
-                wakeLock.addEventListener('release', () => {
-                    console.log('Wake Lock was released');
-                });
-            } catch (err) {
-                console.error(`${err.name}, ${err.message}`);
-            }
+            } catch (err) {}
         }
-
-        // 画面のどこかをタップしたらスリープ防止を開始するようにする
-        // (ブラウザのルールで、ユーザーが操作した時じゃないと起動できないため)
         document.body.addEventListener('click', requestWakeLock);
 
-        // --- 2. データの読み取りと表示 (前と同じ) ---
+        // --- 2. データの表示・保存 ---
         const urlParams = new URLSearchParams(window.location.search);
         const steps = parseFloat(urlParams.get('steps')) || 0;
         const stairs = parseFloat(urlParams.get('stairs')) || 0;
@@ -117,13 +113,47 @@
         const marker = L.marker([35.6812, 139.7671]).addTo(map);
         let pathPoints = [];
         const walkingPath = L.polyline([], { color: 'red', weight: 5 }).addTo(map);
+        
+        // ★目標ルート用の線（青色）
+        const goalPath = L.polyline([], { color: '#3498db', weight: 4, dashArray: '10, 10', opacity: 0.7 }).addTo(map);
+
+        let currentLat = 35.6812;
+        let currentLng = 139.7671;
 
         if (navigator.geolocation) {
             navigator.geolocation.watchPosition(p => {
-                const pos = [p.coords.latitude, p.coords.longitude];
+                currentLat = p.coords.latitude;
+                currentLng = p.coords.longitude;
+                const pos = [currentLat, currentLng];
                 map.setView(pos); marker.setLatLng(pos);
                 pathPoints.push(pos); walkingPath.setLatLngs(pathPoints);
             }, null, { enableHighAccuracy: true });
+        }
+
+        // --- 4. 目標ルート生成ロジック ---
+        function generateGoalRoute() {
+            const dist = parseFloat(document.getElementById('goal-dist').value); // 目標km
+            if (!dist) return;
+
+            // 1辺の長さ(km)
+            const side = dist / 4; 
+            
+            // 緯度・経度の簡易変換（1度≒111km）
+            const latDiff = side / 111;
+            const lngDiff = side / (111 * Math.cos(currentLat * Math.PI / 180));
+
+            // 正方形の4点を計算
+            const p1 = [currentLat, currentLng]; // 起点
+            const p2 = [currentLat + latDiff, currentLng]; // 北へ
+            const p3 = [currentLat + latDiff, currentLng + lngDiff]; // 東へ
+            const p4 = [currentLat, currentLng + lngDiff]; // 南へ
+            
+            const route = [p1, p2, p3, p4, p1]; // 最後に戻る
+            goalPath.setLatLngs(route);
+            
+            // ルートが全体見えるように地図を調整
+            map.fitBounds(goalPath.getBounds());
+            alert("現在地から約" + dist + "kmの周回ルートを青線で表示しました！道路状況に気をつけて歩いてください。");
         }
     </script>
 </body>
