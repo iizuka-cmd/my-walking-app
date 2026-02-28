@@ -51,4 +51,180 @@
             </div>
             <div class="profile-result">
                 <strong>BMI:</strong> <span id="bmi-display" style="color: #e74c3c;">0.0</span> 
-                ｜ <strong>基礎代謝:</strong> <span id="bmr-display" style="color:
+                ｜ <strong>基礎代謝:</strong> <span id="bmr-display" style="color: #e74c3c;">0</span> kcal
+            </div>
+        </details>
+
+        <div style="margin-bottom: 15px; background: #f0f4f8; padding: 10px; border-radius: 10px;">
+            <strong>目標設定:</strong><br>
+            <select id="goal-type" onchange="changeGoalPlaceholder()">
+                <option value="distance">距離 (km)</option>
+                <option value="steps">歩数 (歩)</option>
+            </select>
+            <input type="number" id="goal-value" value="1" step="0.5">
+            <button id="route-btn" onclick="generateGoalRoute()">おすすめルートを表示</button>
+        </div>
+
+        <div class="data-grid">
+            <div class="data-item">歩数<br><span id="steps-display" class="data-value">0</span> 歩</div>
+            <div class="data-item">階段<br><span id="stairs-display" class="data-value">0</span> 階</div>
+            <div class="data-item calorie-box">運動消費カロリー<br><span id="calories-display" class="data-value" style="color: #e67e22;">0</span> kcal</div>
+        </div>
+        
+        <button id="save-btn" onclick="saveCurrentData()">今日の記録を保存する</button>
+    </div>
+
+    <div id="map"></div>
+    
+    <h2>過去の履歴</h2>
+    <div id="history-list"></div>
+
+    <script>
+        // ★エラーで全体が止まらないようにする魔法（try-catch）で全体を囲んでいます
+        try {
+            // --- 1. スリープ防止 ---
+            let wakeLock = null;
+            async function requestWakeLock() {
+                try { wakeLock = await navigator.wakeLock.request('screen');
+                    document.getElementById('wake-lock-status').innerText = "スリープ防止：ON (計測中)";
+                    document.getElementById('wake-lock-status').className = "status-on";
+                } catch (err) {}
+            }
+            document.body.addEventListener('click', requestWakeLock);
+
+            // --- 2. データの取得と表示 ---
+            const urlParams = new URLSearchParams(window.location.search);
+            const steps = parseFloat(urlParams.get('steps')) || 0;
+            const stairs = parseFloat(urlParams.get('stairs')) || 0;
+            document.getElementById('steps-display').innerText = steps.toLocaleString();
+            document.getElementById('stairs-display').innerText = stairs.toLocaleString();
+
+            // パーソナルデータの計算
+            window.updateProfile = function() {
+                const w = parseFloat(document.getElementById('weight-input').value) || 0;
+                const h = parseFloat(document.getElementById('height-input').value) || 0;
+                const a = parseFloat(document.getElementById('age-input').value) || 0;
+                const g = document.getElementById('gender-input').value;
+
+                let bmi = 0;
+                if (h > 0) bmi = (w / Math.pow(h / 100, 2)).toFixed(1);
+                document.getElementById('bmi-display').innerText = bmi;
+
+                let bmr = 0;
+                if (w > 0 && h > 0 && a > 0) {
+                    if (g === 'male') bmr = Math.round(10 * w + 6.25 * h - 5 * a + 5);
+                    else bmr = Math.round(10 * w + 6.25 * h - 5 * a - 161);
+                }
+                document.getElementById('bmr-display').innerText = bmr;
+
+                try { localStorage.setItem('userProfile', JSON.stringify({weight: w, height: h, age: a, gender: g})); } catch(e) {}
+
+                const totalCal = Math.round((steps * w * 0.0005) + (stairs * w * 0.1));
+                document.getElementById('calories-display').innerText = totalCal.toLocaleString();
+            };
+
+            // プロフィールの復元（安全策付き）
+            try {
+                const savedProfile = JSON.parse(localStorage.getItem('userProfile'));
+                if (savedProfile) {
+                    if (savedProfile.weight) document.getElementById('weight-input').value = savedProfile.weight;
+                    if (savedProfile.height) document.getElementById('height-input').value = savedProfile.height;
+                    if (savedProfile.age) document.getElementById('age-input').value = savedProfile.age;
+                    if (savedProfile.gender) document.getElementById('gender-input').value = savedProfile.gender;
+                }
+            } catch(e) {}
+            updateProfile();
+
+            // --- 3. 保存と履歴（安全策付き） ---
+            window.saveCurrentData = function() {
+                const date = new Date().toLocaleDateString();
+                const weight = document.getElementById('weight-input').value;
+                const calories = document.getElementById('calories-display').innerText;
+                const bmi = document.getElementById('bmi-display').innerText;
+                const bmr = document.getElementById('bmr-display').innerText;
+
+                const newData = { date, steps, stairs, weight, calories, bmi, bmr };
+                let history = [];
+                try { history = JSON.parse(localStorage.getItem('walkingHistory')) || []; } catch(e) {}
+                
+                const index = history.findIndex(item => item.date === date);
+                if (index > -1) history[index] = newData; else history.unshift(newData);
+                
+                try { localStorage.setItem('walkingHistory', JSON.stringify(history)); } catch(e) {}
+                alert("本日の記録を保存しました！");
+                displayHistory();
+            };
+
+            function displayHistory() {
+                let history = [];
+                try { history = JSON.parse(localStorage.getItem('walkingHistory')) || []; } catch(e) {}
+                
+                const list = document.getElementById('history-list');
+                list.innerHTML = history.map(item => {
+                    // ★過去のデータに歩数やBMIが無くてもエラーにならないようにする魔法
+                    const safeSteps = Number(item.steps || 0).toLocaleString();
+                    const safeStairs = Number(item.stairs || 0);
+                    const safeCal = item.calories || 0;
+                    const safeWeight = item.weight || '--';
+                    const safeBmi = item.bmi || '--';
+                    const safeBmr = item.bmr || '--';
+                    
+                    return `
+                    <div class="history-item">
+                        <strong style="font-size: 1.1em;">${item.date}</strong><br>
+                        🏃‍♂️ ${safeSteps}歩 / 🪜 ${safeStairs}階 / 🔥 運動: ${safeCal}kcal<br>
+                        ⚖️ 体重: ${safeWeight}kg (BMI: ${safeBmi} / 基礎代謝: ${safeBmr}kcal)
+                    </div>
+                    `;
+                }).join('');
+            }
+            displayHistory();
+
+            // --- 4. 地図と目標 ---
+            window.changeGoalPlaceholder = function() {
+                const type = document.getElementById('goal-type').value;
+                const input = document.getElementById('goal-value');
+                if (type === 'distance') { input.value = "1"; input.step = "0.5"; } 
+                else { input.value = "3000"; input.step = "500"; }
+            };
+
+            const map = L.map('map').setView([35.6812, 139.7671], 15);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+            const marker = L.marker([35.6812, 139.7671]).addTo(map);
+            let pathPoints = [];
+            const walkingPath = L.polyline([], { color: 'red', weight: 5 }).addTo(map);
+            const goalPath = L.polyline([], { color: '#3498db', weight: 4, dashArray: '10, 10', opacity: 0.7 }).addTo(map);
+
+            let currentLat = 35.6812; let currentLng = 139.7671;
+
+            if (navigator.geolocation) {
+                navigator.geolocation.watchPosition(p => {
+                    currentLat = p.coords.latitude; currentLng = p.coords.longitude;
+                    const pos = [currentLat, currentLng];
+                    map.setView(pos); marker.setLatLng(pos);
+                    pathPoints.push(pos); walkingPath.setLatLngs(pathPoints);
+                }, null, { enableHighAccuracy: true });
+            }
+
+            window.generateGoalRoute = function() {
+                const type = document.getElementById('goal-type').value;
+                const value = parseFloat(document.getElementById('goal-value').value);
+                if (!value || value <= 0) return;
+                let dist = type === 'distance' ? value : value * 0.0007;
+
+                const side = dist / 4; 
+                const latDiff = side / 111;
+                const lngDiff = side / (111 * Math.cos(currentLat * Math.PI / 180));
+                const p1 = [currentLat, currentLng]; const p2 = [currentLat + latDiff, currentLng];
+                const p3 = [currentLat + latDiff, currentLng + lngDiff]; const p4 = [currentLat, currentLng + lngDiff];
+                
+                goalPath.setLatLngs([p1, p2, p3, p4, p1]);
+                map.fitBounds(goalPath.getBounds());
+            };
+
+        } catch (error) {
+            console.log("エラーを回避しました:", error);
+        }
+    </script>
+</body>
+</html>
