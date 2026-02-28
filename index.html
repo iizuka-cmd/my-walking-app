@@ -66,7 +66,7 @@
     <div class="container">
         <div id="tab-walk" class="main-tab-content active">
             <div class="card">
-                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v7.1</span></h1>
+                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v7.2</span></h1>
                 <div id="wake-lock-status" class="status-off">スリープ防止：OFF (画面タップ)</div>
                 
                 <div style="background: #f0f4f8; padding: 10px; border-radius: 10px; margin-bottom: 15px;">
@@ -207,7 +207,7 @@
                     const nick = document.getElementById('nickname-input').value;
                     let displayName = "あなた";
                     if (nick) displayName = nick; else if (real) displayName = real;
-                    document.getElementById('app-title').innerHTML = `${displayName}の健康ログ <span class="version-badge">v7.1</span>`;
+                    document.getElementById('app-title').innerHTML = `${displayName}の健康ログ <span class="version-badge">v7.2</span>`;
 
                     const w = parseFloat(document.getElementById('weight-input').value) || 0;
                     const h = parseFloat(document.getElementById('height-input').value) || 0;
@@ -346,45 +346,67 @@
                     btn.disabled = true;
 
                     let distMeters = (type === 'distance' ? value : value * 0.0007) * 1000;
-                    const randomSeed = Math.floor(Math.random() * 10000);
+                    
+                    let bestData = null;
+                    let minDiff = Infinity;
 
                     try {
-                        // ★ v7.1: ここを foot-hiking に変更しました。裏道や公園が選ばれやすくなります！
-                        const response = await fetch('https://api.openrouteservice.org/v2/directions/foot-hiking/geojson', {
-                            method: 'POST',
-                            headers: {
-                                'Accept': 'application/json, application/geo+json, application/gpx+xml, img/png; charset=utf-8',
-                                'Content-Type': 'application/json',
-                                'Authorization': ORS_API_KEY
-                            },
-                            body: JSON.stringify({
-                                coordinates: [[currentLng, currentLat]],
-                                options: {
-                                    round_trip: {
-                                        length: distMeters,
-                                        points: 3,
-                                        seed: randomSeed
+                        // ★ アプリ側でAIに最大3回の「やり直し」を命じるループ
+                        for (let i = 0; i < 3; i++) {
+                            const randomSeed = Math.floor(Math.random() * 10000);
+                            const response = await fetch('https://api.openrouteservice.org/v2/directions/foot-hiking/geojson', {
+                                method: 'POST',
+                                headers: {
+                                    'Accept': 'application/json, application/geo+json, application/gpx+xml, img/png; charset=utf-8',
+                                    'Content-Type': 'application/json',
+                                    'Authorization': ORS_API_KEY
+                                },
+                                body: JSON.stringify({
+                                    coordinates: [[currentLng, currentLat]],
+                                    options: {
+                                        round_trip: {
+                                            length: distMeters,
+                                            points: 3,
+                                            seed: randomSeed
+                                        }
                                     }
-                                }
-                            })
-                        });
+                                })
+                            });
 
-                        if (!response.ok) {
-                            alert("ルートが見つかりませんでした。もう一度ボタンを押すと再検索します！");
+                            if (response.ok) {
+                                const data = await response.json();
+                                const actualDist = data.features[0].properties.summary.distance; // 実際の距離(m)
+                                const diff = Math.abs(actualDist - distMeters); // 理想との誤差(m)
+                                
+                                // より誤差が少ないルートをキープしておく
+                                if (diff < minDiff) {
+                                    minDiff = diff;
+                                    bestData = data;
+                                }
+
+                                // もし誤差が「±30%以内」または「300m以内」なら合格！すぐにループを抜ける
+                                if (diff <= distMeters * 0.3 || diff <= 300) {
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (!bestData) {
+                            alert("ルートが見つかりませんでした。少し距離を変えてみてください。");
                             btn.innerText = "おすすめルートを検索";
                             btn.disabled = false;
                             return;
                         }
 
-                        const data = await response.json();
-                        const routeCoords = data.features[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
+                        // 一番誤差が少なかった合格ルートを描画
+                        const routeCoords = bestData.features[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
                         goalPath.setLatLngs(routeCoords);
                         map.fitBounds(goalPath.getBounds());
                         
-                        const actualDist = (data.features[0].properties.summary.distance / 1000).toFixed(2);
-                        const actualMins = Math.round(data.features[0].properties.summary.duration / 60);
+                        const actualDistKm = (bestData.features[0].properties.summary.distance / 1000).toFixed(2);
+                        const actualMins = Math.round(bestData.features[0].properties.summary.duration / 60);
                         
-                        alert(`散歩道に沿った約${actualDist}km (徒歩約${actualMins}分) の周回ルートを作成しました！`);
+                        alert(`散歩道に沿った約${actualDistKm}km (徒歩約${actualMins}分) の周回ルートを作成しました！`);
 
                     } catch(err) {
                         console.error(err);
