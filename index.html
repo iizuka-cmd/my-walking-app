@@ -14,16 +14,13 @@
         .data-item { background: #eef2f7; padding: 10px; border-radius: 10px; text-align: center; }
         .data-value { font-size: 1.2em; font-weight: bold; color: #3498db; }
         .calorie-box { background: #fff3cd; border: 1px solid #ffeeba; grid-column: span 2; }
-        
         select, input[type="number"], input[type="date"] { padding: 8px; border-radius: 5px; border: 1px solid #ccc; font-size: 1em; }
         input[type="number"] { width: 70px; }
-        
         details { background: #f0f4f8; padding: 10px; border-radius: 10px; margin-bottom: 15px; }
         summary { font-weight: bold; cursor: pointer; outline: none; }
-        .profile-grid { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 10px; } /* スマホで見やすいように1列に変更 */
+        .profile-grid { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 10px; }
         .profile-row { display: flex; justify-content: space-between; align-items: center; }
         .profile-result { margin-top: 10px; padding-top: 10px; border-top: 1px dashed #ccc; text-align: center; }
-        
         button { width: 100%; padding: 12px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; margin-top: 10px; }
         #save-btn { background: #27ae60; color: white; }
         #route-btn { background: #3498db; color: white; margin-bottom: 10px; }
@@ -97,50 +94,25 @@
     <div id="history-list"></div>
 
     <script>
+        // ブロックを完全に分けて、他を巻き込まないようにします
+
+        // --- 1. スリープ防止 ---
         try {
-            // --- 1. スリープ防止 ---
             let wakeLock = null;
-            async function requestWakeLock() {
+            window.requestWakeLock = async function() {
                 try { wakeLock = await navigator.wakeLock.request('screen');
                     document.getElementById('wake-lock-status').innerText = "スリープ防止：ON (計測中)";
                     document.getElementById('wake-lock-status').className = "status-on";
                 } catch (err) {}
-            }
+            };
             document.body.addEventListener('click', requestWakeLock);
+        } catch(e) {}
 
-            // --- 2. データの取得と表示 ---
+        // --- 2. 歩数と階数の取得 ---
+        let steps = 0;
+        let stairs = 0;
+        try {
             const urlParams = new URLSearchParams(window.location.search);
-            const steps = parseFloat(urlParams.get('steps')) || 0;
-            const stairs = parseFloat(urlParams.get('stairs')) || 0;
-            document.getElementById('steps-display').innerText = steps.toLocaleString();
-            document.getElementById('stairs-display').innerText = stairs.toLocaleString();
-
-            // ★パーソナルデータの計算（年齢自動計算を含む）
-            window.updateProfile = function() {
-                const w = parseFloat(document.getElementById('weight-input').value) || 0;
-                const h = parseFloat(document.getElementById('height-input').value) || 0;
-                const g = document.getElementById('gender-input').value;
-                const dobStr = document.getElementById('dob-input').value;
-
-                // 生年月日から現在の年齢を計算
-                let a = 0; // 年齢
-                if (dobStr) {
-                    const dob = new Date(dobStr);
-                    const today = new Date();
-                    a = today.getFullYear() - dob.getFullYear();
-                    const m = today.getMonth() - dob.getMonth();
-                    // 今年の誕生日がまだ来ていない場合は1歳引く
-                    if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) {
-                        a--;
-                    }
-                    document.getElementById('calculated-age').innerText = a;
-                } else {
-                    document.getElementById('calculated-age').innerText = '--';
-                }
-
-                // BMI計算
-                let bmi = 0;
-                if (h > 0) bmi = (w / Math.pow(h / 100, 2)).toFixed(1);
-                document.getElementById('bmi-display').innerText = bmi;
-
-                // 基礎代謝
+            steps = parseFloat(urlParams.get('steps')) || 0;
+            stairs = parseFloat(urlParams.get('stairs')) || 0;
+            document.getElementById('steps
