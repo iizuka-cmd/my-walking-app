@@ -66,7 +66,7 @@
     <div class="container">
         <div id="tab-walk" class="main-tab-content active">
             <div class="card">
-                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v6.1</span></h1>
+                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v6.2</span></h1>
                 <div id="wake-lock-status" class="status-off">スリープ防止：OFF (画面タップ)</div>
                 
                 <div style="background: #f0f4f8; padding: 10px; border-radius: 10px; margin-bottom: 15px;">
@@ -99,7 +99,6 @@
         <div id="tab-meal" class="main-tab-content">
             <div class="card">
                 <h2 style="margin-top:0;">⚖️ 体調と食事の記録</h2>
-                
                 <details open>
                     <summary>👤 パーソナルデータ (自動計算)</summary>
                     <div class="profile-row"><span>本名:</span> <input type="text" id="realname-input" class="inline-input" oninput="calcAll()" placeholder="例: 山田 太郎"></div>
@@ -124,13 +123,11 @@
                     <span id="total-kcal" style="font-size:1.2em; font-weight:bold; color:#d35400;">0</span> kcal<br>
                     P: <span id="total-p">0</span>g / F: <span id="total-f">0</span>g / C: <span id="total-c">0</span>g / 塩分: <span id="total-s">0</span>g
                 </div>
-
                 <div class="balance-box">
                     🔥 <strong>今日のカロリー収支</strong><br>
                     <small>摂取 <span id="bal-in">0</span> - 消費(基礎<span id="bal-bmr">0</span>+運動<span id="bal-act">0</span>)</small>
                     <div id="balance-result" class="balance-result">---</div>
                 </div>
-
                 <button class="action-btn save-btn" onclick="saveCurrentData()">💾 今日のすべての記録を保存</button>
             </div>
         </div>
@@ -147,7 +144,6 @@
                     <canvas id="healthChart"></canvas>
                 </div>
             </div>
-            
             <div class="card">
                 <h2 style="margin-top:0;">🗓️ 過去の履歴</h2>
                 <div id="history-list"></div>
@@ -214,12 +210,10 @@
                 try {
                     const real = document.getElementById('realname-input').value;
                     const nick = document.getElementById('nickname-input').value;
-                    
-                    // ★ 「指揮官」を削除し、シンプルな名前に変更
                     let displayName = "あなた";
                     if (nick) displayName = nick;
                     else if (real) displayName = real;
-                    document.getElementById('app-title').innerHTML = `${displayName}の健康ログ <span class="version-badge">v6.1</span>`;
+                    document.getElementById('app-title').innerHTML = `${displayName}の健康ログ <span class="version-badge">v6.2</span>`;
 
                     const w = parseFloat(document.getElementById('weight-input').value) || 0;
                     const h = parseFloat(document.getElementById('height-input').value) || 0;
@@ -348,6 +342,7 @@
                     }, null, { enableHighAccuracy: true });
                 }
 
+                // ★ v6.2: 完全に「四角形にぐるっと回る」正しい数学計算に修正しました
                 window.generateGoalRoute = async function() {
                     const btn = document.getElementById('route-btn');
                     const type = document.getElementById('goal-type').value;
@@ -357,23 +352,31 @@
                     btn.innerText = "通信中... (AIナビ計算中)";
                     btn.disabled = true;
 
-                    let dist = type === 'distance' ? value : value * 0.0007;
+                    let distKm = type === 'distance' ? value : value * 0.0007;
 
-                    const radiusKm = (dist / (2 * Math.PI)) * 0.8;
+                    // 1. 指定距離(distKm)の四角形がすっぽり入る円の半径を計算（1辺の長さの約0.7倍）
+                    const radiusKm = (distKm / 4) * 0.7;
                     const latDiff = radiusKm / 111; 
                     const lngDiff = radiusKm / (111 * Math.cos(currentLat * Math.PI / 180));
                     
-                    const randomAngle = Math.random() * Math.PI * 2;
+                    // 2. 現在地から見て、どの方角(0〜360度)に中心を作るかランダムに決める
+                    const angle1 = Math.random() * Math.PI * 2;
                     
-                    const centerLat = currentLat + Math.sin(randomAngle) * latDiff;
-                    const centerLng = currentLng + Math.cos(randomAngle) * lngDiff;
+                    // 3. ループの中心点を決定
+                    const centerLat = currentLat + Math.sin(angle1) * latDiff;
+                    const centerLng = currentLng + Math.cos(angle1) * lngDiff;
 
-                    const p1 = [currentLng, currentLat]; 
-                    const p2 = [centerLng + Math.cos(randomAngle + Math.PI/2) * lngDiff, centerLat + Math.sin(randomAngle + Math.PI/2) * latDiff];
-                    const p3 = [centerLng + Math.cos(randomAngle + Math.PI) * lngDiff, centerLat + Math.sin(randomAngle + Math.PI) * latDiff];
-                    const p4 = [centerLng + Math.cos(randomAngle + Math.PI*1.5) * lngDiff, centerLat + Math.sin(randomAngle + Math.PI*1.5) * latDiff];
+                    // 4. その中心点の周りを、現在地からスタートして90度ずつ綺麗に回る経由地を作成
+                    const angle2 = angle1 + Math.PI + (Math.PI / 2); // 90度回る
+                    const angle3 = angle1 + Math.PI + Math.PI;       // 180度回る
+                    const angle4 = angle1 + Math.PI + (Math.PI * 1.5); // 270度回る
+
+                    const p1 = [currentLng, currentLat]; // スタート(現在地)
+                    const p2 = [centerLng + Math.cos(angle2) * lngDiff, centerLat + Math.sin(angle2) * latDiff];
+                    const p3 = [centerLng + Math.cos(angle3) * lngDiff, centerLat + Math.sin(angle3) * latDiff];
+                    const p4 = [centerLng + Math.cos(angle4) * lngDiff, centerLat + Math.sin(angle4) * latDiff];
                     
-                    const coordinates = [p1, p2, p3, p4, p1];
+                    const coordinates = [p1, p2, p3, p4, p1]; // 最後にスタート地点に戻る
 
                     try {
                         const response = await fetch('https://api.openrouteservice.org/v2/directions/foot-walking/geojson', {
