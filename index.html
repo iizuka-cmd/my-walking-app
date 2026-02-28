@@ -6,13 +6,13 @@
     <title>マイウォーキングアプリ</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
     <style>
         body { font-family: sans-serif; padding: 20px; background-color: #f8f9fa; color: #333; max-width: 600px; margin: auto; }
         .card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        /* タイトル部分に v2.0 の目印を追加 */
         h1 { font-size: 1.2em; margin-bottom: 15px; border-bottom: 2px solid #27ae60; padding-bottom: 5px; display: flex; justify-content: space-between; align-items: center; }
         .version-badge { background: #e74c3c; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.6em; font-weight: bold; }
-        
         .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
         .data-item { background: #eef2f7; padding: 10px; border-radius: 10px; text-align: center; }
         .data-value { font-size: 1.2em; font-weight: bold; color: #3498db; }
@@ -24,9 +24,16 @@
         .profile-grid { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 10px; }
         .profile-row { display: flex; justify-content: space-between; align-items: center; }
         .profile-result { margin-top: 10px; padding-top: 10px; border-top: 1px dashed #ccc; text-align: center; }
+        
         button { width: 100%; padding: 12px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; margin-top: 10px; }
         #save-btn { background: #27ae60; color: white; }
         #route-btn { background: #3498db; color: white; margin-bottom: 10px; }
+        
+        /* ★グラフ用のタブボタンのスタイル */
+        .tab-container { display: flex; gap: 5px; margin-bottom: 10px; }
+        button.tab-btn { flex: 1; padding: 10px; margin: 0; border-radius: 5px; border: 1px solid #ccc; background: #f0f4f8; color: #555; font-weight: normal; }
+        button.tab-btn.active { background: #3498db; color: white; border-color: #2980b9; font-weight: bold; }
+        
         #map { height: 300px; width: 100%; border-radius: 15px; border: 2px solid #ddd; margin-bottom: 20px; }
         .history-item { background: white; padding: 12px; border-radius: 10px; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border-left: 5px solid #27ae60; font-size: 0.9em; }
         #wake-lock-status { font-size: 0.8em; text-align: center; margin-bottom: 10px; padding: 5px; border-radius: 20px; }
@@ -37,7 +44,7 @@
 <body>
 
     <div class="card">
-        <h1>飯塚指揮官の健康ログ <span class="version-badge">v2.0</span></h1>
+        <h1>飯塚指揮官の健康ログ <span class="version-badge">v3.0</span></h1>
         <div id="wake-lock-status" class="status-off">スリープ防止：OFF (画面をタップ)</div>
 
         <details open>
@@ -89,6 +96,18 @@
         </div>
         
         <button id="save-btn" onclick="saveCurrentData()">今日の記録を保存する</button>
+
+        <div style="margin-top: 25px;">
+            <h2 style="font-size: 1.1em; border-bottom: 2px solid #3498db; padding-bottom: 5px;">📊 カラダの変化</h2>
+            <div class="tab-container">
+                <button id="tab-weight" class="tab-btn active" onclick="switchGraph('weight')">体重</button>
+                <button id="tab-bmi" class="tab-btn" onclick="switchGraph('bmi')">BMI</button>
+                <button id="tab-bmr" class="tab-btn" onclick="switchGraph('bmr')">基礎代謝</button>
+            </div>
+            <div style="background: white; padding: 10px; border-radius: 10px; border: 1px solid #ddd; margin-bottom: 10px;">
+                <canvas id="healthChart"></canvas>
+            </div>
+        </div>
     </div>
 
     <div id="map"></div>
@@ -97,9 +116,10 @@
     <div id="history-list"></div>
 
     <script>
-        // エラーの連鎖を完全に防ぐ独立設計
         let steps = 0;
         let stairs = 0;
+        let myChart = null; // グラフを記憶する箱
+        window.currentGraphMode = 'weight'; // 現在どのタブを見ているか
 
         window.onload = function() {
             // 1. スリープ防止
@@ -114,7 +134,7 @@
                 document.body.addEventListener('click', requestWakeLock);
             } catch(e) {}
 
-            // 2. 歩数データの読み取り
+            // 2. 歩数読み取り
             try {
                 const urlParams = new URLSearchParams(window.location.search);
                 steps = parseFloat(urlParams.get('steps')) || 0;
@@ -123,7 +143,7 @@
                 document.getElementById('stairs-display').innerText = stairs.toLocaleString();
             } catch(e) {}
 
-            // 3. パーソナルデータ計算
+            // 3. パーソナルデータ
             window.updateProfile = function() {
                 try {
                     const w = parseFloat(document.getElementById('weight-input').value) || 0;
@@ -137,9 +157,7 @@
                         const today = new Date();
                         a = today.getFullYear() - dob.getFullYear();
                         const m = today.getMonth() - dob.getMonth();
-                        if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) {
-                            a--;
-                        }
+                        if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) { a--; }
                         document.getElementById('calculated-age').innerText = a;
                     } else {
                         document.getElementById('calculated-age').innerText = '--';
@@ -159,12 +177,10 @@
                     localStorage.setItem('userProfileV2', JSON.stringify({weight: w, height: h, dob: dobStr, gender: g}));
                     const totalCal = Math.round((steps * w * 0.0005) + (stairs * w * 0.1));
                     document.getElementById('calories-display').innerText = totalCal.toLocaleString();
-                } catch(e) { console.error(e); }
+                } catch(e) {}
             };
 
-            // 4. データ復元
             try {
-                // エラーの原因になっていた古いデータを捨てて、V2用の新しい箱を使います
                 const savedStr = localStorage.getItem('userProfileV2');
                 if (savedStr) {
                     const savedProfile = JSON.parse(savedStr);
@@ -176,7 +192,81 @@
             } catch(e) {}
             updateProfile();
 
-            // 5. 履歴機能
+            // ★グラフを描画する魔法の関数
+            window.renderGraph = function() {
+                try {
+                    let history = JSON.parse(localStorage.getItem('walkingHistory')) || [];
+                    // グラフは左から右へ（古い順に）表示するため、データを逆順にします
+                    let graphData = [...history].reverse();
+                    
+                    let labels = graphData.map(item => item.date); // X軸（日付）
+                    let dataPoints = [];
+                    let lineColor = "";
+                    let labelName = "";
+
+                    // どのタブが押されているかでデータを切り替え
+                    if (window.currentGraphMode === 'weight') {
+                        dataPoints = graphData.map(item => parseFloat(item.weight) || 0);
+                        labelName = "体重 (kg)";
+                        lineColor = "#3498db"; // 青色
+                    } else if (window.currentGraphMode === 'bmi') {
+                        dataPoints = graphData.map(item => parseFloat(item.bmi) || 0);
+                        labelName = "BMI";
+                        lineColor = "#9b59b6"; // 紫色
+                    } else if (window.currentGraphMode === 'bmr') {
+                        dataPoints = graphData.map(item => parseFloat(item.bmr) || 0);
+                        labelName = "基礎代謝 (kcal)";
+                        lineColor = "#e67e22"; // オレンジ色
+                    }
+
+                    const ctx = document.getElementById('healthChart').getContext('2d');
+                    
+                    if (myChart) { myChart.destroy(); } // 既にグラフがあれば消して描き直す
+
+                    myChart = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: labelName,
+                                data: dataPoints,
+                                borderColor: lineColor,
+                                backgroundColor: lineColor,
+                                borderWidth: 2,
+                                tension: 0, // ★ここを0にすることで「直線」になります
+                                pointRadius: 4,
+                                pointBackgroundColor: '#fff',
+                                pointBorderWidth: 2
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: { legend: { display: false } }, // 上のラベルを消してスッキリ
+                            scales: {
+                                y: {
+                                    // データの最小・最大に合わせて自動でグラフのメモリを調整してくれます
+                                    beginAtZero: false 
+                                }
+                            }
+                        }
+                    });
+                } catch(e) { console.error("グラフ描画エラー:", e); }
+            };
+
+            // ★タブを切り替える処理
+            window.switchGraph = function(mode) {
+                window.currentGraphMode = mode;
+                // ボタンの色をリセット
+                document.getElementById('tab-weight').className = "tab-btn";
+                document.getElementById('tab-bmi').className = "tab-btn";
+                document.getElementById('tab-bmr').className = "tab-btn";
+                // 押されたボタンだけ色をつける
+                document.getElementById('tab-' + mode).className = "tab-btn active";
+                // グラフを再描画
+                renderGraph();
+            };
+
+            // 5. 履歴の保存
             window.saveCurrentData = function() {
                 try {
                     const date = new Date().toLocaleDateString();
@@ -186,8 +276,7 @@
                     const bmr = document.getElementById('bmr-display').innerText;
 
                     const newData = { date, steps, stairs, weight, calories, bmi, bmr };
-                    let history = [];
-                    try { history = JSON.parse(localStorage.getItem('walkingHistory')) || []; } catch(e){}
+                    let history = JSON.parse(localStorage.getItem('walkingHistory')) || [];
                     
                     const index = history.findIndex(item => item.date === date);
                     if (index > -1) history[index] = newData; else history.unshift(newData);
@@ -195,13 +284,13 @@
                     localStorage.setItem('walkingHistory', JSON.stringify(history));
                     alert("本日の記録を保存しました！");
                     displayHistory();
+                    renderGraph(); // ★保存した瞬間にグラフもピクッと更新させる
                 } catch(e) {}
             };
 
             window.displayHistory = function() {
                 try {
-                    let history = [];
-                    try { history = JSON.parse(localStorage.getItem('walkingHistory')) || []; } catch(e){}
+                    let history = JSON.parse(localStorage.getItem('walkingHistory')) || [];
                     const list = document.getElementById('history-list');
                     list.innerHTML = history.map(item => {
                         return `
@@ -214,9 +303,12 @@
                     }).join('');
                 } catch(e) {}
             };
-            displayHistory();
 
-            // 6. 地図と目標ルート
+            // 起動時に履歴とグラフを表示
+            displayHistory();
+            renderGraph();
+
+            // 6. 地図
             window.changeGoalPlaceholder = function() {
                 const type = document.getElementById('goal-type').value;
                 const input = document.getElementById('goal-value');
