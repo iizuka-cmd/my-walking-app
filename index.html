@@ -13,7 +13,7 @@
         .container { max-width: 600px; margin: auto; padding: 15px; }
         .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 15px; }
         h1 { font-size: 1.2em; margin-top: 0; margin-bottom: 15px; border-bottom: 2px solid #27ae60; padding-bottom: 5px; display: flex; justify-content: space-between; align-items: center; }
-        /* ★ v5.0にアップデート */
+        /* ★ v5.1の目印 */
         .version-badge { background: #e74c3c; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.6em; font-weight: bold; }
         
         .main-tab-content { display: none; animation: fadeIn 0.3s ease; }
@@ -58,7 +58,7 @@
     <div class="container">
         <div id="tab-walk" class="main-tab-content active">
             <div class="card">
-                <h1>飯塚指揮官の健康ログ <span class="version-badge">v5.0</span></h1>
+                <h1>飯塚指揮官の健康ログ <span class="version-badge">v5.1</span></h1>
                 <div id="wake-lock-status" class="status-off">スリープ防止：OFF (画面タップ)</div>
                 
                 <div style="background: #f0f4f8; padding: 10px; border-radius: 10px; margin-bottom: 15px;">
@@ -148,7 +148,6 @@
     </nav>
 
     <script>
-        // ★ 指揮官のAPIキー（秘密の鍵）
         const ORS_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjBiNWMzYjRiODBlNTQxYjY4NmIwMTQ2MTIzNmYwNmFhIiwiaCI6Im11cm11cjY0In0=";
 
         let steps = 0, stairs = 0, activeCal = 0;
@@ -156,16 +155,14 @@
         window.currentGraphMode = 'weight';
 
         window.onload = function() {
-            // タブ切り替え制御
             window.switchMainTab = function(tabName) {
                 document.querySelectorAll('.main-tab-content').forEach(el => el.classList.remove('active'));
                 document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
                 document.getElementById('tab-' + tabName).classList.add('active');
                 document.getElementById('nav-' + tabName).classList.add('active');
-                if(tabName === 'walk' && map) { setTimeout(() => { map.invalidateSize(); }, 100); }
+                if(tabName === 'walk' && window.map) { setTimeout(() => { window.map.invalidateSize(); }, 100); }
             };
 
-            // スリープ防止と歩数取得
             try {
                 window.requestWakeLock = async function() {
                     try { 
@@ -181,7 +178,6 @@
                 document.getElementById('stairs-display').innerText = stairs.toLocaleString();
             } catch(e) {}
 
-            // 計算機能一式（v4.0と同じ）
             window.calcAll = function() {
                 try {
                     const w = parseFloat(document.getElementById('weight-input').value) || 0;
@@ -230,7 +226,7 @@
 
                     const cm = { bf: [getVal('bf-cal'), getVal('bf-p'), getVal('bf-f'), getVal('bf-c'), getVal('bf-s')], lu: [getVal('lu-cal'), getVal('lu-p'), getVal('lu-f'), getVal('lu-c'), getVal('lu-s')], dn: [getVal('dn-cal'), getVal('dn-p'), getVal('dn-f'), getVal('dn-c'), getVal('dn-s')], sn: [getVal('sn-cal'), getVal('sn-p'), getVal('sn-f'), getVal('sn-c'), getVal('sn-s')] };
                     localStorage.setItem('userProfileV4', JSON.stringify({weight: w, height: h, dob: dobStr, gender: g, meals: cm}));
-                } catch(e) { console.error(e); }
+                } catch(e) {}
             };
 
             try {
@@ -249,7 +245,6 @@
             } catch(e) {}
             calcAll();
 
-            // 履歴とグラフ（v4.0と同じ）
             window.renderGraph = function() {
                 try {
                     let history = JSON.parse(localStorage.getItem('walkingHistory')) || [];
@@ -285,7 +280,6 @@
             };
             displayHistory(); renderGraph();
 
-            // 地図関係
             window.changeGoalPlaceholder = function() {
                 const type = document.getElementById('goal-type').value;
                 const input = document.getElementById('goal-value');
@@ -298,7 +292,6 @@
                 const marker = L.marker([35.6812, 139.7671]).addTo(map);
                 let pathPoints = [];
                 const walkingPath = L.polyline([], { color: 'red', weight: 5 }).addTo(map);
-                // ★ 目指すルートの線を、道路っぽくちょっと太めの青色に変更
                 const goalPath = L.polyline([], { color: '#2980b9', weight: 6, opacity: 0.8 }).addTo(map);
 
                 let currentLat = 35.6812; let currentLng = 139.7671;
@@ -312,7 +305,7 @@
                     }, null, { enableHighAccuracy: true });
                 }
 
-                // ★ ここが今回最大の魔法です（ORSサーバーとの通信）
+                // ★ v5.1：通信先（URL）とエラー表示を修正しました
                 window.generateGoalRoute = async function() {
                     const btn = document.getElementById('route-btn');
                     const type = document.getElementById('goal-type').value;
@@ -324,22 +317,19 @@
 
                     let dist = type === 'distance' ? value : value * 0.0007;
 
-                    // まず以前と同じように、四角形の目標地点を計算します
                     const side = dist / 4; 
                     const latDiff = side / 111; 
                     const lngDiff = side / (111 * Math.cos(currentLat * Math.PI / 180));
                     
-                    // ORSサーバーは [経度, 緯度] の順番でデータを求めてくるので入れ替えます
                     const p1 = [currentLng, currentLat]; 
                     const p2 = [currentLng, currentLat + latDiff];
                     const p3 = [currentLng + lngDiff, currentLat + latDiff]; 
                     const p4 = [currentLng + lngDiff, currentLat];
-                    
-                    const coordinates = [p1, p2, p3, p4, p1]; // 一周して戻ってくるルート
+                    const coordinates = [p1, p2, p3, p4, p1];
 
                     try {
-                        // ORSサーバーにお願い（Fetch）のメールを送ります
-                        const response = await fetch('https://api.openrouteservice.org/v2/directions/foot-walking', {
+                        // ★ ここを /geojson に修正しました
+                        const response = await fetch('https://api.openrouteservice.org/v2/directions/foot-walking/geojson', {
                             method: 'POST',
                             headers: {
                                 'Accept': 'application/json, application/geo+json, application/gpx+xml, img/png; charset=utf-8',
@@ -347,37 +337,34 @@
                                 'Authorization': ORS_API_KEY
                             },
                             body: JSON.stringify({
-                                coordinates: coordinates,
-                                elevation: false,
-                                instructions: false,
-                                preference: 'recommended' // おすすめの歩行ルート
+                                coordinates: coordinates
                             })
                         });
 
-                        const data = await response.json();
-
-                        if (data.error) {
-                            alert("ルートが見つかりませんでした。(川や海などが横切っている可能性があります)\nエラー詳細: " + data.error.message);
+                        // サーバーから「道がないよ」と怒られた場合の安全処理
+                        if (!response.ok) {
+                            alert("ルートが見つかりませんでした。\n（川や線路などを跨げない可能性があります。少し距離の数字を変えてみてください）");
                             btn.innerText = "おすすめルートを検索";
                             btn.disabled = false;
                             return;
                         }
 
+                        const data = await response.json();
+                        
                         // 返ってきたデータ（経度, 緯度）を地図用（緯度, 経度）に戻して描画
                         const routeCoords = data.features[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
                         goalPath.setLatLngs(routeCoords);
                         map.fitBounds(goalPath.getBounds());
                         
-                        // サーバーが計算した「実際の道路の距離(km)」
+                        // サーバーが計算した「実際の道路の距離(km)」と「時間」
                         const actualDist = (data.features[0].properties.summary.distance / 1000).toFixed(2);
-                        
-                        // 距離と時間を教えてくれる
                         const actualMins = Math.round(data.features[0].properties.summary.duration / 60);
-                        alert(`道路に沿った約${actualDist}km (徒歩約${actualMins}分) のルートを作成しました！安全に気を付けて行ってらっしゃい！`);
+                        
+                        alert(`道路に沿った約${actualDist}km (徒歩約${actualMins}分) のルートを作成しました！`);
 
                     } catch(err) {
                         console.error(err);
-                        alert("通信エラーが発生しました。電波の良い場所で再度お試しください。");
+                        alert("通信中にエラーが発生しました。");
                     } finally {
                         btn.innerText = "おすすめルートを検索";
                         btn.disabled = false;
