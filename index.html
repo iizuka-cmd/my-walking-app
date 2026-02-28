@@ -15,15 +15,20 @@
         .data-value { font-size: 1.2em; font-weight: bold; color: #3498db; }
         .calorie-box { background: #fff3cd; border: 1px solid #ffeeba; grid-column: span 2; }
         
-        /* 入力欄のデザイン調整 */
         select, input[type="number"] { padding: 8px; border-radius: 5px; border: 1px solid #ccc; font-size: 1em; }
-        input[type="number"] { width: 80px; }
+        input[type="number"] { width: 70px; }
+        
+        /* パーソナルデータ用のデザイン */
+        details { background: #f0f4f8; padding: 10px; border-radius: 10px; margin-bottom: 15px; }
+        summary { font-weight: bold; cursor: pointer; outline: none; }
+        .profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+        .profile-result { margin-top: 10px; padding-top: 10px; border-top: 1px dashed #ccc; text-align: center; }
         
         button { width: 100%; padding: 12px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; margin-top: 10px; }
         #save-btn { background: #27ae60; color: white; }
         #route-btn { background: #3498db; color: white; margin-bottom: 10px; }
         #map { height: 300px; width: 100%; border-radius: 15px; border: 2px solid #ddd; margin-bottom: 20px; }
-        .history-item { background: white; padding: 12px; border-radius: 10px; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border-left: 5px solid #27ae60; }
+        .history-item { background: white; padding: 12px; border-radius: 10px; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border-left: 5px solid #27ae60; font-size: 0.9em; }
         #wake-lock-status { font-size: 0.8em; text-align: center; margin-bottom: 10px; padding: 5px; border-radius: 20px; }
         .status-on { background: #d4edda; color: #155724; }
         .status-off { background: #f8d7da; color: #721c24; }
@@ -35,7 +40,26 @@
         <h1>飯塚指揮官の健康ログ</h1>
         <div id="wake-lock-status" class="status-off">スリープ防止：OFF (画面をタップ)</div>
 
-        <div style="margin-bottom: 10px; background: #f0f4f8; padding: 10px; border-radius: 10px;">
+        <details open>
+            <summary>⚙️ パーソナルデータ</summary>
+            <div class="profile-grid">
+                <div>性別: 
+                    <select id="gender-input" onchange="updateProfile()">
+                        <option value="male">男性</option>
+                        <option value="female">女性</option>
+                    </select>
+                </div>
+                <div>年齢: <input type="number" id="age-input" value="30" oninput="updateProfile()"> 歳</div>
+                <div>身長: <input type="number" id="height-input" value="170" oninput="updateProfile()"> cm</div>
+                <div>体重: <input type="number" id="weight-input" value="65" oninput="updateProfile()"> kg</div>
+            </div>
+            <div class="profile-result">
+                <strong>BMI:</strong> <span id="bmi-display" style="color: #e74c3c;">0.0</span> 
+                ｜ <strong>基礎代謝:</strong> <span id="bmr-display" style="color: #e74c3c;">0</span> kcal
+            </div>
+        </details>
+
+        <div style="margin-bottom: 15px; background: #f0f4f8; padding: 10px; border-radius: 10px;">
             <strong>目標設定:</strong><br>
             <select id="goal-type" onchange="changeGoalPlaceholder()">
                 <option value="distance">距離 (km)</option>
@@ -45,14 +69,10 @@
             <button id="route-btn" onclick="generateGoalRoute()">おすすめルートを表示</button>
         </div>
 
-        <div style="margin-bottom: 15px;">
-            体重: <input type="number" id="weight-input" value="65" style="width: 60px;"> kg
-        </div>
-
         <div class="data-grid">
             <div class="data-item">歩数<br><span id="steps-display" class="data-value">0</span> 歩</div>
             <div class="data-item">階段<br><span id="stairs-display" class="data-value">0</span> 階</div>
-            <div class="data-item calorie-box">推定消費カロリー<br><span id="calories-display" class="data-value" style="color: #e67e22;">0</span> kcal</div>
+            <div class="data-item calorie-box">運動消費カロリー<br><span id="calories-display" class="data-value" style="color: #e67e22;">0</span> kcal</div>
         </div>
         
         <button id="save-btn" onclick="saveCurrentData()">今日の記録を保存する</button>
@@ -67,124 +87,100 @@
         // --- 1. スリープ防止 ---
         let wakeLock = null;
         async function requestWakeLock() {
-            try {
-                wakeLock = await navigator.wakeLock.request('screen');
-                const statusDiv = document.getElementById('wake-lock-status');
-                statusDiv.innerText = "スリープ防止：ON (計測中)";
-                statusDiv.className = "status-on";
+            try { wakeLock = await navigator.wakeLock.request('screen');
+                document.getElementById('wake-lock-status').innerText = "スリープ防止：ON (計測中)";
+                document.getElementById('wake-lock-status').className = "status-on";
             } catch (err) {}
         }
         document.body.addEventListener('click', requestWakeLock);
 
-        // --- 2. データの表示・保存 ---
+        // --- 2. データの取得と表示 ---
         const urlParams = new URLSearchParams(window.location.search);
         const steps = parseFloat(urlParams.get('steps')) || 0;
         const stairs = parseFloat(urlParams.get('stairs')) || 0;
         document.getElementById('steps-display').innerText = steps.toLocaleString();
         document.getElementById('stairs-display').innerText = stairs.toLocaleString();
 
-        function calculateCalories() {
-            const weight = parseFloat(document.getElementById('weight-input').value) || 65;
-            const totalCal = Math.round((steps * weight * 0.0005) + (stairs * weight * 0.1));
+        // ★パーソナルデータの読み込みと計算
+        function updateProfile() {
+            const w = parseFloat(document.getElementById('weight-input').value) || 0;
+            const h = parseFloat(document.getElementById('height-input').value) || 0;
+            const a = parseFloat(document.getElementById('age-input').value) || 0;
+            const g = document.getElementById('gender-input').value;
+
+            // BMI計算: 体重(kg) / (身長(m) × 身長(m))
+            let bmi = 0;
+            if (h > 0) bmi = (w / Math.pow(h / 100, 2)).toFixed(1);
+            document.getElementById('bmi-display').innerText = bmi;
+
+            // 基礎代謝計算 (ミフリン・セントジョール方程式)
+            let bmr = 0;
+            if (w > 0 && h > 0 && a > 0) {
+                if (g === 'male') bmr = Math.round(10 * w + 6.25 * h - 5 * a + 5);
+                else bmr = Math.round(10 * w + 6.25 * h - 5 * a - 161);
+            }
+            document.getElementById('bmr-display').innerText = bmr;
+
+            // 次回開いた時のためにiPhoneに設定を記憶させる
+            localStorage.setItem('userProfile', JSON.stringify({weight: w, height: h, age: a, gender: g}));
+
+            // 運動消費カロリーも再計算
+            const totalCal = Math.round((steps * w * 0.0005) + (stairs * w * 0.1));
             document.getElementById('calories-display').innerText = totalCal.toLocaleString();
         }
-        document.getElementById('weight-input').addEventListener('input', calculateCalories);
-        calculateCalories();
 
+        // アプリ起動時に記憶したプロフィールを復元
+        const savedProfile = JSON.parse(localStorage.getItem('userProfile'));
+        if (savedProfile) {
+            document.getElementById('weight-input').value = savedProfile.weight;
+            document.getElementById('height-input').value = savedProfile.height;
+            document.getElementById('age-input').value = savedProfile.age;
+            document.getElementById('gender-input').value = savedProfile.gender;
+        }
+        updateProfile(); // 初期計算を実行
+
+        // --- 3. 保存機能（BMI・基礎代謝も保存） ---
         function saveCurrentData() {
             const date = new Date().toLocaleDateString();
             const weight = document.getElementById('weight-input').value;
             const calories = document.getElementById('calories-display').innerText;
-            const newData = { date, steps, stairs, weight, calories };
+            const bmi = document.getElementById('bmi-display').innerText;
+            const bmr = document.getElementById('bmr-display').innerText;
+
+            const newData = { date, steps, stairs, weight, calories, bmi, bmr };
             let history = JSON.parse(localStorage.getItem('walkingHistory')) || [];
             const index = history.findIndex(item => item.date === date);
             if (index > -1) history[index] = newData; else history.unshift(newData);
             localStorage.setItem('walkingHistory', JSON.stringify(history));
-            alert("記録を保存しました！");
+            alert("本日の記録を保存しました！");
             displayHistory();
         }
 
+        // 履歴表示のアップデート
         function displayHistory() {
             const history = JSON.parse(localStorage.getItem('walkingHistory')) || [];
             const list = document.getElementById('history-list');
             list.innerHTML = history.map(item => `
                 <div class="history-item">
-                    <strong>${item.date}</strong><br>
-                    ${item.steps.toLocaleString()}歩 / ${item.stairs}階 / ${item.calories}kcal (${item.weight}kg)
+                    <strong style="font-size: 1.1em;">${item.date}</strong><br>
+                    🏃‍♂️ ${item.steps.toLocaleString()}歩 / 🪜 ${item.stairs}階 / 🔥 運動: ${item.calories}kcal<br>
+                    ⚖️ 体重: ${item.weight}kg (BMI: ${item.bmi || '--'} / 基礎代謝: ${item.bmr || '--'}kcal)
                 </div>
             `).join('');
         }
         displayHistory();
 
-        // --- 3. 地図とGPS追跡 ---
+        // --- 4. 目標ルート・地図・GPS追跡 (前回と同じ) ---
+        function changeGoalPlaceholder() {
+            const type = document.getElementById('goal-type').value;
+            const input = document.getElementById('goal-value');
+            if (type === 'distance') { input.value = "1"; input.step = "0.5"; } 
+            else { input.value = "3000"; input.step = "500"; }
+        }
+
         const map = L.map('map').setView([35.6812, 139.7671], 15);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
         const marker = L.marker([35.6812, 139.7671]).addTo(map);
         let pathPoints = [];
         const walkingPath = L.polyline([], { color: 'red', weight: 5 }).addTo(map);
-        const goalPath = L.polyline([], { color: '#3498db', weight: 4, dashArray: '10, 10', opacity: 0.7 }).addTo(map);
-
-        let currentLat = 35.6812;
-        let currentLng = 139.7671;
-
-        if (navigator.geolocation) {
-            navigator.geolocation.watchPosition(p => {
-                currentLat = p.coords.latitude;
-                currentLng = p.coords.longitude;
-                const pos = [currentLat, currentLng];
-                map.setView(pos); marker.setLatLng(pos);
-                pathPoints.push(pos); walkingPath.setLatLngs(pathPoints);
-            }, null, { enableHighAccuracy: true });
-        }
-
-        // --- 4. 目標切り替えとルート生成ロジック ---
-        // 選択肢を変えた時に、入力欄の数字を遊び心で切り替える機能
-        function changeGoalPlaceholder() {
-            const type = document.getElementById('goal-type').value;
-            const input = document.getElementById('goal-value');
-            if (type === 'distance') {
-                input.value = "1";
-                input.step = "0.5";
-            } else {
-                input.value = "3000"; // 歩数の場合は初期値を3000歩に
-                input.step = "500";
-            }
-        }
-
-        function generateGoalRoute() {
-            const type = document.getElementById('goal-type').value;
-            const value = parseFloat(document.getElementById('goal-value').value);
-            if (!value || value <= 0) return;
-
-            let dist = 0; // ルートを計算するための距離(km)
-
-            if (type === 'distance') {
-                dist = value; // 入力された数字をそのまま距離にする
-            } else if (type === 'steps') {
-                dist = value * 0.0007; // 1歩 = 約0.7m (0.0007km) として距離に変換
-            }
-
-            // 正方形のルート計算
-            const side = dist / 4; 
-            const latDiff = side / 111;
-            const lngDiff = side / (111 * Math.cos(currentLat * Math.PI / 180));
-
-            const p1 = [currentLat, currentLng];
-            const p2 = [currentLat + latDiff, currentLng];
-            const p3 = [currentLat + latDiff, currentLng + lngDiff];
-            const p4 = [currentLat, currentLng + lngDiff];
-            
-            const route = [p1, p2, p3, p4, p1];
-            goalPath.setLatLngs(route);
-            map.fitBounds(goalPath.getBounds());
-            
-            // アラートのメッセージを出し分ける
-            if (type === 'distance') {
-                alert(`現在地から約${value}kmの周回ルートを表示しました！`);
-            } else {
-                alert(`目標${value}歩！ 約${dist.toFixed(2)}kmの周回ルートを表示しました！`);
-            }
-        }
-    </script>
-</body>
-</html>
+        const goalPath = L.polyline([], { color
