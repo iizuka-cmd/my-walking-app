@@ -14,7 +14,11 @@
         .data-item { background: #eef2f7; padding: 10px; border-radius: 10px; text-align: center; }
         .data-value { font-size: 1.2em; font-weight: bold; color: #3498db; }
         .calorie-box { background: #fff3cd; border: 1px solid #ffeeba; grid-column: span 2; }
-        input[type="number"] { width: 50px; padding: 5px; border-radius: 5px; border: 1px solid #ccc; }
+        
+        /* 入力欄のデザイン調整 */
+        select, input[type="number"] { padding: 8px; border-radius: 5px; border: 1px solid #ccc; font-size: 1em; }
+        input[type="number"] { width: 80px; }
+        
         button { width: 100%; padding: 12px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; margin-top: 10px; }
         #save-btn { background: #27ae60; color: white; }
         #route-btn { background: #3498db; color: white; margin-bottom: 10px; }
@@ -31,13 +35,18 @@
         <h1>飯塚指揮官の健康ログ</h1>
         <div id="wake-lock-status" class="status-off">スリープ防止：OFF (画面をタップ)</div>
 
-        <div style="margin-bottom: 10px;">
-            目標距離: <input type="number" id="goal-dist" value="1" step="0.5"> km
+        <div style="margin-bottom: 10px; background: #f0f4f8; padding: 10px; border-radius: 10px;">
+            <strong>目標設定:</strong><br>
+            <select id="goal-type" onchange="changeGoalPlaceholder()">
+                <option value="distance">距離 (km)</option>
+                <option value="steps">歩数 (歩)</option>
+            </select>
+            <input type="number" id="goal-value" value="1" step="0.5">
             <button id="route-btn" onclick="generateGoalRoute()">おすすめルートを表示</button>
         </div>
 
         <div style="margin-bottom: 15px;">
-            体重: <input type="number" id="weight-input" value="65"> kg
+            体重: <input type="number" id="weight-input" value="65" style="width: 60px;"> kg
         </div>
 
         <div class="data-grid">
@@ -113,8 +122,6 @@
         const marker = L.marker([35.6812, 139.7671]).addTo(map);
         let pathPoints = [];
         const walkingPath = L.polyline([], { color: 'red', weight: 5 }).addTo(map);
-        
-        // ★目標ルート用の線（青色）
         const goalPath = L.polyline([], { color: '#3498db', weight: 4, dashArray: '10, 10', opacity: 0.7 }).addTo(map);
 
         let currentLat = 35.6812;
@@ -130,30 +137,53 @@
             }, null, { enableHighAccuracy: true });
         }
 
-        // --- 4. 目標ルート生成ロジック ---
-        function generateGoalRoute() {
-            const dist = parseFloat(document.getElementById('goal-dist').value); // 目標km
-            if (!dist) return;
+        // --- 4. 目標切り替えとルート生成ロジック ---
+        // 選択肢を変えた時に、入力欄の数字を遊び心で切り替える機能
+        function changeGoalPlaceholder() {
+            const type = document.getElementById('goal-type').value;
+            const input = document.getElementById('goal-value');
+            if (type === 'distance') {
+                input.value = "1";
+                input.step = "0.5";
+            } else {
+                input.value = "3000"; // 歩数の場合は初期値を3000歩に
+                input.step = "500";
+            }
+        }
 
-            // 1辺の長さ(km)
+        function generateGoalRoute() {
+            const type = document.getElementById('goal-type').value;
+            const value = parseFloat(document.getElementById('goal-value').value);
+            if (!value || value <= 0) return;
+
+            let dist = 0; // ルートを計算するための距離(km)
+
+            if (type === 'distance') {
+                dist = value; // 入力された数字をそのまま距離にする
+            } else if (type === 'steps') {
+                dist = value * 0.0007; // 1歩 = 約0.7m (0.0007km) として距離に変換
+            }
+
+            // 正方形のルート計算
             const side = dist / 4; 
-            
-            // 緯度・経度の簡易変換（1度≒111km）
             const latDiff = side / 111;
             const lngDiff = side / (111 * Math.cos(currentLat * Math.PI / 180));
 
-            // 正方形の4点を計算
-            const p1 = [currentLat, currentLng]; // 起点
-            const p2 = [currentLat + latDiff, currentLng]; // 北へ
-            const p3 = [currentLat + latDiff, currentLng + lngDiff]; // 東へ
-            const p4 = [currentLat, currentLng + lngDiff]; // 南へ
+            const p1 = [currentLat, currentLng];
+            const p2 = [currentLat + latDiff, currentLng];
+            const p3 = [currentLat + latDiff, currentLng + lngDiff];
+            const p4 = [currentLat, currentLng + lngDiff];
             
-            const route = [p1, p2, p3, p4, p1]; // 最後に戻る
+            const route = [p1, p2, p3, p4, p1];
             goalPath.setLatLngs(route);
-            
-            // ルートが全体見えるように地図を調整
             map.fitBounds(goalPath.getBounds());
-            alert("現在地から約" + dist + "kmの周回ルートを青線で表示しました！道路状況に気をつけて歩いてください。");
+            
+            // アラートのメッセージを出し分ける
+            if (type === 'distance') {
+                alert(`現在地から約${value}kmの周回ルートを表示しました！`);
+            } else {
+                alert(`目標${value}歩！ 約${dist.toFixed(2)}kmの周回ルートを表示しました！`);
+            }
         }
     </script>
 </body>
