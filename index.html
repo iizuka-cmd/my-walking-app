@@ -71,11 +71,11 @@
     <div class="container">
         <div id="tab-walk" class="main-tab-content active">
             <div class="card">
-                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v8.1</span></h1>
+                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v8.2</span></h1>
                 <div id="wake-lock-status" class="status-off">スリープ防止：OFF (画面タップ)</div>
                 
                 <div style="background: #f0f4f8; padding: 10px; border-radius: 10px; margin-bottom: 15px;">
-                    <strong>目標ルート作成 (AI散歩ナビ):</strong><br>
+                    <strong>目標ルート作成 (AIナビ):</strong><br>
                     
                     <div class="route-mode-box">
                         <label>
@@ -105,7 +105,7 @@
                     <div class="data-item">今日の歩数<br><span id="steps-display" class="data-value">0</span> 歩</div>
                     <div class="data-item">上がった階数<br><span id="stairs-display" class="data-value">0</span> 階</div>
                     <div class="data-item" style="grid-column: span 2; background: #e8f8f5;">
-                        運動による消費カロリー<br><span id="calories-display" class="data-value" style="color: #16a085;">0</span> kcal
+                        運動消費カロリー<br><span id="calories-display" class="data-value" style="color: #16a085;">0</span> kcal
                     </div>
                 </div>
             </div>
@@ -238,7 +238,7 @@
                     const nick = document.getElementById('nickname-input').value;
                     let displayName = "あなた";
                     if (nick) displayName = nick; else if (real) displayName = real;
-                    document.getElementById('app-title').innerHTML = `${displayName}の健康ログ <span class="version-badge">v8.1</span>`;
+                    document.getElementById('app-title').innerHTML = `${displayName}の健康ログ <span class="version-badge">v8.2</span>`;
 
                     const w = parseFloat(document.getElementById('weight-input').value) || 0;
                     const h = parseFloat(document.getElementById('height-input').value) || 0;
@@ -381,9 +381,7 @@
                     }
                 });
 
-                // ★ サーバーへの負荷を減らすための「ひと呼吸」用関数
-                const delay = ms => new Promise(res => setTimeout(res, ms));
-
+                // ★ v8.2 究極の安定版（foot-walkingへ戻し、一発計算、スナップ強制追加）
                 window.generateGoalRoute = async function() {
                     const btn = document.getElementById('route-btn');
                     const type = document.getElementById('goal-type').value;
@@ -401,8 +399,7 @@
                             alert("地図をタップして、目的地（赤いピン）を立ててください！");
                             return;
                         }
-                        
-                        btn.innerText = "通信中... (AI散歩ナビ計算中)";
+                        btn.innerText = "通信中... (AIナビ計算中)";
                         btn.disabled = true;
 
                         const destLat = destMarker.getLatLng().lat;
@@ -416,17 +413,21 @@
                             return;
                         }
 
-                        let coordinatesToRequest = [];
+                        let requestBody = {};
+                        let isShortest = false;
 
+                        // 距離が短い場合は最短ルート
                         if (distMeters <= straightDistMeters * 1.2) {
-                            coordinatesToRequest = [ [currentLng, currentLat], [destLng, destLat] ];
+                            isShortest = true;
+                            requestBody = {
+                                coordinates: [[currentLng, currentLat], [destLng, destLat]],
+                                radiuses: [-1, -1] // ★どこにあっても無理やり道に引っ張る魔法のパラメータ
+                            };
                             if (distMeters < straightDistMeters) {
                                 alert(`目的地までの直線距離（約${(straightDistMeters/1000).toFixed(1)}km）より目標距離が短いため、今回は最短ルートで案内します！`);
                             }
                         } else {
-                            let bestData = null;
-                            let minDiff = Infinity;
-                            
+                            // 遠回りルートの計算（1回だけ確実に）
                             const midLat = (currentLat + destLat) / 2;
                             const midLng = (currentLng + destLng) / 2;
                             const dy = (destLat - currentLat) * 111;
@@ -435,88 +436,50 @@
                             
                             const a = (distMeters / 1000) / 2;
                             const c = (straightDistMeters / 1000) / 2;
-                            const b = Math.sqrt(a*a - c*c);
+                            const b = Math.sqrt(Math.max(a*a - c*c, 0));
 
-                            // ★ 確実な3パターン（右回り、左回り、通り過ぎる）だけを試す
-                            const angles = [Math.PI / 2, -Math.PI / 2, 0];
+                            // 左右どちらかにランダムに膨らませる
+                            const alpha = (Math.random() > 0.5 ? Math.PI / 2 : -Math.PI / 2);
+                            const px = a * Math.cos(alpha);
+                            const py = b * Math.sin(alpha);
+                            const rx = px * Math.cos(theta) - py * Math.sin(theta);
+                            const ry = px * Math.sin(theta) + py * Math.cos(theta);
+                            
+                            const wpLat = midLat + (ry / 111);
+                            const wpLng = midLng + (rx / (111 * Math.cos(midLat * Math.PI / 180)));
 
-                            for (let i = 0; i < 3; i++) {
-                                const alpha = angles[i];
-                                const px = a * Math.cos(alpha);
-                                const py = b * Math.sin(alpha);
-                                const rx = px * Math.cos(theta) - py * Math.sin(theta);
-                                const ry = px * Math.sin(theta) + py * Math.cos(theta);
-                                
-                                const wpLat = midLat + (ry / 111);
-                                const wpLng = midLng + (rx / (111 * Math.cos(midLat * Math.PI / 180)));
-
-                                const tempCoords = [ [currentLng, currentLat], [wpLng, wpLat], [destLng, destLat] ];
-
-                                try {
-                                    const response = await fetch('https://api.openrouteservice.org/v2/directions/foot-hiking/geojson', {
-                                        method: 'POST',
-                                        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'Authorization': ORS_API_KEY },
-                                        body: JSON.stringify({ coordinates: tempCoords })
-                                    });
-
-                                    // ★ サーバー制限（429）に引っかかったらループを抜ける
-                                    if (response.status === 429) {
-                                        alert("サーバーの通信制限（1分間に40回）に達しました。1分ほど待ってから再度お試しください！");
-                                        break; 
-                                    }
-
-                                    if (response.ok) {
-                                        const data = await response.json();
-                                        const actualDist = data.features[0].properties.summary.distance;
-                                        const diff = Math.abs(actualDist - distMeters);
-                                        
-                                        if (diff < minDiff) { minDiff = diff; bestData = data; }
-                                        if (diff <= distMeters * 0.3 || diff <= 300) break;
-                                    }
-                                } catch(err) {}
-                                
-                                // ★ サーバーをパンクさせないために、0.5秒のひと呼吸を置く
-                                await delay(500);
-                            }
-
-                            if (bestData) {
-                                const routeCoords = bestData.features[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
-                                goalPath.setLatLngs(routeCoords);
-                                map.fitBounds(goalPath.getBounds());
-                                const finalDist = (bestData.features[0].properties.summary.distance / 1000).toFixed(2);
-                                const finalMins = Math.round(bestData.features[0].properties.summary.duration / 60);
-                                alert(`目的地へ向かう、約${finalDist}km (徒歩約${finalMins}分) の「大回り散歩ルート」を作成しました！`);
-                                btn.innerText = "おすすめルートを検索";
-                                btn.disabled = false;
-                                return;
-                            } else {
-                                alert("遠回りルートが作れませんでした。距離を変えるか、ピンを置き直してください。");
-                                btn.innerText = "おすすめルートを検索";
-                                btn.disabled = false;
-                                return;
-                            }
+                            requestBody = {
+                                coordinates: [[currentLng, currentLat], [wpLng, wpLat], [destLng, destLat]],
+                                radiuses: [-1, -1, -1] // ★経由地が建物の中や川でも絶対にエラーを出させない！
+                            };
                         }
 
-                        // 最短ルートの場合
                         try {
-                            const response = await fetch('https://api.openrouteservice.org/v2/directions/foot-hiking/geojson', {
+                            // ★ エラーが少ない都市モード（foot-walking）に完全固定
+                            const response = await fetch('https://api.openrouteservice.org/v2/directions/foot-walking/geojson', {
                                 method: 'POST',
                                 headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'Authorization': ORS_API_KEY },
-                                body: JSON.stringify({ coordinates: coordinatesToRequest })
+                                body: JSON.stringify(requestBody)
                             });
-                            if (response.status === 429) {
-                                alert("サーバーの通信制限（1分間に40回）に達しました。1分ほど待ってから再度お試しください！");
-                                return;
-                            }
+
+                            if (response.status === 429) throw new Error("429");
+                            if (!response.ok) throw new Error("API Error");
+
                             const data = await response.json();
                             const routeCoords = data.features[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
                             goalPath.setLatLngs(routeCoords);
                             map.fitBounds(goalPath.getBounds());
                             const finalDist = (data.features[0].properties.summary.distance / 1000).toFixed(2);
                             const finalMins = Math.round(data.features[0].properties.summary.duration / 60);
-                            alert(`目的地への最短ルート（約${finalDist}km / 約${finalMins}分）を作成しました！`);
+
+                            if (isShortest) {
+                                alert(`目的地への最短ルート（約${finalDist}km / 徒歩約${finalMins}分）を作成しました！`);
+                            } else {
+                                alert(`目的地へ大回りする約${finalDist}km (徒歩約${finalMins}分) のルートを作成しました！`);
+                            }
                         } catch(err) {
-                            alert("通信エラーが発生しました。");
+                            if (err.message === "429") alert("通信制限に達しました！1分ほど待ってから再度ボタンを押してください。");
+                            else alert("通信エラーが発生しました。時間を置いてやり直してください。");
                         } finally {
                             btn.innerText = "おすすめルートを検索";
                             btn.disabled = false;
@@ -527,59 +490,35 @@
                     // ==========================================
                     // 🔄 周回モード
                     // ==========================================
-                    btn.innerText = "通信中... (AI散歩ナビ計算中)";
+                    btn.innerText = "通信中... (AIナビ計算中)";
                     btn.disabled = true;
 
-                    let bestData = null;
-                    let minDiff = Infinity;
+                    const randomSeed = Math.floor(Math.random() * 10000);
 
                     try {
-                        for (let i = 0; i < 3; i++) {
-                            const randomSeed = Math.floor(Math.random() * 10000);
-                            const response = await fetch('https://api.openrouteservice.org/v2/directions/foot-hiking/geojson', {
-                                method: 'POST',
-                                headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'Authorization': ORS_API_KEY },
-                                body: JSON.stringify({
-                                    coordinates: [[currentLng, currentLat]],
-                                    options: { round_trip: { length: distMeters, points: 3, seed: randomSeed } }
-                                })
-                            });
+                        const response = await fetch('https://api.openrouteservice.org/v2/directions/foot-walking/geojson', {
+                            method: 'POST',
+                            headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'Authorization': ORS_API_KEY },
+                            body: JSON.stringify({
+                                coordinates: [[currentLng, currentLat]],
+                                options: { round_trip: { length: distMeters, points: 3, seed: randomSeed } }
+                            })
+                        });
 
-                            // ★ ここでもサーバー制限のチェックとひと呼吸を追加
-                            if (response.status === 429) {
-                                alert("サーバーの通信制限（1分間に40回）に達しました。1分ほど待ってから再度お試しください！");
-                                break;
-                            }
+                        if (response.status === 429) throw new Error("429");
+                        if (!response.ok) throw new Error("API Error");
 
-                            if (response.ok) {
-                                const data = await response.json();
-                                const actualDist = data.features[0].properties.summary.distance;
-                                const diff = Math.abs(actualDist - distMeters);
-                                if (diff < minDiff) { minDiff = diff; bestData = data; }
-                                if (diff <= distMeters * 0.3 || diff <= 300) break;
-                            }
-                            await delay(500); // 0.5秒待つ
-                        }
-
-                        if (!bestData) {
-                            alert("ルートが見つかりませんでした。少し距離を変えてみてください。");
-                            btn.innerText = "おすすめルートを検索";
-                            btn.disabled = false;
-                            return;
-                        }
-
-                        const routeCoords = bestData.features[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
+                        const data = await response.json();
+                        const routeCoords = data.features[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
                         goalPath.setLatLngs(routeCoords);
                         map.fitBounds(goalPath.getBounds());
-                        
-                        const actualDistKm = (bestData.features[0].properties.summary.distance / 1000).toFixed(2);
-                        const actualMins = Math.round(bestData.features[0].properties.summary.duration / 60);
-                        
-                        alert(`散歩道に沿った約${actualDistKm}km (徒歩約${actualMins}分) の周回ルートを作成しました！`);
+                        const actualDistKm = (data.features[0].properties.summary.distance / 1000).toFixed(2);
+                        const actualMins = Math.round(data.features[0].properties.summary.duration / 60);
 
+                        alert(`約${actualDistKm}km (徒歩約${actualMins}分) の周回ルートを作成しました！`);
                     } catch(err) {
-                        console.error(err);
-                        alert("通信中にエラーが発生しました。");
+                        if (err.message === "429") alert("通信制限に達しました！1分ほど待ってから再度ボタンを押してください。");
+                        else alert("ルートが見つかりませんでした。時間を置いてやり直してください。");
                     } finally {
                         btn.innerText = "おすすめルートを検索";
                         btn.disabled = false;
