@@ -71,7 +71,7 @@
     <div class="container">
         <div id="tab-walk" class="main-tab-content active">
             <div class="card">
-                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v8.3</span></h1>
+                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v8.4</span></h1>
                 <div id="wake-lock-status" class="status-off">スリープ防止：OFF (画面タップ)</div>
                 
                 <div style="background: #f0f4f8; padding: 10px; border-radius: 10px; margin-bottom: 15px;">
@@ -80,22 +80,24 @@
                     <div class="route-mode-box">
                         <label>
                             <input type="radio" name="route-mode" value="loop" checked onchange="toggleRouteMode()">
-                            <span>🔄 周回モード<br><small style="font-size:0.7em;color:#777;">元の場所に戻る</small></span>
+                            <span>🔄 周回モード<br><small style="font-size:0.7em;color:#777;">距離を指定して一周</small></span>
                         </label>
                         <label>
                             <input type="radio" name="route-mode" value="dest" onchange="toggleRouteMode()">
-                            <span>📍 目的地モード<br><small style="font-size:0.7em;color:#777;">地図タップでピンを置く</small></span>
+                            <span>📍 目的地モード<br><small style="font-size:0.7em;color:#777;">地図タップで最短ルート</small></span>
                         </label>
                     </div>
 
-                    <div style="display: flex; gap: 10px; margin-top: 5px;">
+                    <div id="distance-input-area" style="display: flex; gap: 10px; margin-top: 5px;">
                         <select id="goal-type" onchange="changeGoalPlaceholder()" style="flex: 1;">
                             <option value="distance">距離 (km)</option>
                             <option value="steps">歩数 (歩)</option>
                         </select>
                         <input type="number" id="goal-value" value="1" step="0.5" style="flex: 1;">
                     </div>
+
                     <button id="route-btn" class="action-btn" onclick="generateGoalRoute()">おすすめルートを検索</button>
+                    
                     <div id="dest-hint" style="display:none; text-align:center; font-size:0.8em; color:#e74c3c; margin-top:5px; font-weight:bold;">
                         地図を直接タップして、目的地（赤いピン）を立ててください。
                     </div>
@@ -207,12 +209,21 @@
                 setTimeout(() => { if(window.map) window.map.invalidateSize(); }, 300);
             };
 
+            // ★ UIの切り替え機能
             window.toggleRouteMode = function() {
                 const mode = document.querySelector('input[name="route-mode"]:checked').value;
+                const inputArea = document.getElementById('distance-input-area');
+                const hint = document.getElementById('dest-hint');
+                const btn = document.getElementById('route-btn');
+                
                 if (mode === 'dest') {
-                    document.getElementById('dest-hint').style.display = 'block';
+                    inputArea.style.display = 'none'; // 目的地モードでは距離入力を隠す
+                    hint.style.display = 'block';
+                    btn.innerText = "目的地までのルートを検索";
                 } else {
-                    document.getElementById('dest-hint').style.display = 'none';
+                    inputArea.style.display = 'flex'; // 周回モードでは距離入力を出す
+                    hint.style.display = 'none';
+                    btn.innerText = "おすすめルートを検索";
                     if (destMarker) { map.removeLayer(destMarker); destMarker = null; }
                 }
             };
@@ -238,7 +249,7 @@
                     const nick = document.getElementById('nickname-input').value;
                     let displayName = "あなた";
                     if (nick) displayName = nick; else if (real) displayName = real;
-                    document.getElementById('app-title').innerHTML = `${displayName}の健康ログ <span class="version-badge">v8.3</span>`;
+                    document.getElementById('app-title').innerHTML = `${displayName}の健康ログ <span class="version-badge">v8.4</span>`;
 
                     const w = parseFloat(document.getElementById('weight-input').value) || 0;
                     const h = parseFloat(document.getElementById('height-input').value) || 0;
@@ -381,7 +392,6 @@
                     }
                 });
 
-                // ★ 地図に線を引く共通関数（これがあることでエラーを防ぎます）
                 function drawRoute(data) {
                     const routeCoords = data.features[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
                     goalPath.setLatLngs(routeCoords);
@@ -393,115 +403,55 @@
 
                 window.generateGoalRoute = async function() {
                     const btn = document.getElementById('route-btn');
-                    const type = document.getElementById('goal-type').value;
-                    const value = parseFloat(document.getElementById('goal-value').value);
                     const mode = document.querySelector('input[name="route-mode"]:checked').value;
                     
-                    if (!value || value <= 0) return;
-                    let distMeters = Math.round((type === 'distance' ? value : value * 0.0007) * 1000);
-
                     // ==========================================
-                    // 📍 目的地モード
+                    // 📍 目的地モード（シンプル・確実な最短ルート）
                     // ==========================================
                     if (mode === 'dest') {
                         if (!destMarker) {
                             alert("地図をタップして、目的地（赤いピン）を立ててください！");
                             return;
                         }
-                        btn.innerText = "通信中... (AIナビ計算中)";
+                        btn.innerText = "通信中... (ルート計算中)";
                         btn.disabled = true;
 
                         const destLat = destMarker.getLatLng().lat;
                         const destLng = destMarker.getLatLng().lng;
-                        const straightDistMeters = map.distance([currentLat, currentLng], [destLat, destLng]);
 
-                        if (straightDistMeters < 50) {
-                            alert("目的地が近すぎます！もう少し遠くにピンを置いてください。");
-                            btn.innerText = "おすすめルートを検索";
+                        try {
+                            const response = await fetch('https://api.openrouteservice.org/v2/directions/foot-walking/geojson', {
+                                method: 'POST',
+                                headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'Authorization': ORS_API_KEY },
+                                body: JSON.stringify({
+                                    coordinates: [[currentLng, currentLat], [destLng, destLat]]
+                                })
+                            });
+
+                            if (!response.ok) throw new Error("API Error");
+
+                            const data = await response.json();
+                            const info = drawRoute(data);
+                            alert(`目的地へのルート（距離：約${info.distKm}km / 徒歩：約${info.mins}分）を作成しました！`);
+                        } catch(err) {
+                            alert("通信エラーが発生しました。");
+                        } finally {
+                            btn.innerText = "目的地までのルートを検索";
                             btn.disabled = false;
-                            return;
                         }
-
-                        let tryDetour = (distMeters > straightDistMeters * 1.2);
-                        let isSuccess = false;
-
-                        // 1. 大回りに挑戦する
-                        if (tryDetour) {
-                            const midLat = (currentLat + destLat) / 2;
-                            const midLng = (currentLng + destLng) / 2;
-                            const dy = (destLat - currentLat) * 111;
-                            const dx = (destLng - currentLng) * 111 * Math.cos(midLat * Math.PI / 180);
-                            const theta = Math.atan2(dy, dx);
-                            
-                            const a = (distMeters / 1000) / 2;
-                            const c = (straightDistMeters / 1000) / 2;
-                            const b = Math.sqrt(Math.max(a*a - c*c, 0));
-
-                            // 左右どちらかにランダムに膨らませる
-                            const alpha = (Math.random() > 0.5 ? Math.PI / 2 : -Math.PI / 2);
-                            const px = a * Math.cos(alpha);
-                            const py = b * Math.sin(alpha);
-                            const rx = px * Math.cos(theta) - py * Math.sin(theta);
-                            const ry = px * Math.sin(theta) + py * Math.cos(theta);
-                            
-                            const wpLat = midLat + (ry / 111);
-                            const wpLng = midLng + (rx / (111 * Math.cos(midLat * Math.PI / 180)));
-
-                            const tempCoords = [ [currentLng, currentLat], [wpLng, wpLat], [destLng, destLat] ];
-
-                            try {
-                                const res = await fetch('https://api.openrouteservice.org/v2/directions/foot-walking/geojson', {
-                                    method: 'POST',
-                                    headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'Authorization': ORS_API_KEY },
-                                    body: JSON.stringify({ coordinates: tempCoords }) // 余計なパラメータをすべて削除！
-                                });
-
-                                if (res.ok) {
-                                    const data = await res.json();
-                                    const info = drawRoute(data);
-                                    alert(`目的地へ大回りする約${info.distKm}km (徒歩約${info.mins}分) のルートを作成しました！`);
-                                    isSuccess = true;
-                                }
-                            } catch(err) { console.error(err); }
-                        }
-
-                        // 2. もし大回りが失敗した、または元々距離が短い場合、安全な「最短ルート」を確実に引く！
-                        if (!isSuccess) {
-                            try {
-                                const res = await fetch('https://api.openrouteservice.org/v2/directions/foot-walking/geojson', {
-                                    method: 'POST',
-                                    headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'Authorization': ORS_API_KEY },
-                                    body: JSON.stringify({ coordinates: [ [currentLng, currentLat], [destLng, destLat] ] })
-                                });
-                                if (res.ok) {
-                                    const data = await res.json();
-                                    const info = drawRoute(data);
-                                    if (tryDetour) {
-                                        alert(`指定された距離での大回りが道に阻まれたため、最短ルート（約${info.distKm}km / 約${info.mins}分）を表示します！`);
-                                    } else {
-                                        alert(`目的地への最短ルート（約${info.distKm}km / 約${info.mins}分）を作成しました！`);
-                                    }
-                                } else {
-                                    alert("ルートが見つかりませんでした。川などが邪魔している可能性があります。");
-                                }
-                            } catch(err) {
-                                alert("通信エラーが発生しました。");
-                            }
-                        }
-
-                        btn.innerText = "おすすめルートを検索";
-                        btn.disabled = false;
                         return;
                     }
 
                     // ==========================================
-                    // 🔄 周回モード
+                    // 🔄 周回モード（v7.0の安定版ロジック）
                     // ==========================================
-                    btn.innerText = "通信中... (AIナビ計算中)";
-                    btn.disabled = true;
+                    const type = document.getElementById('goal-type').value;
+                    const value = parseFloat(document.getElementById('goal-value').value);
+                    if (!value || value <= 0) return;
+                    let distMeters = Math.round((type === 'distance' ? value : value * 0.0007) * 1000);
 
-                    // ★ Seed値のルール違反を修正（0〜90の数字のみを送る）
-                    const randomSeed = Math.floor(Math.random() * 90);
+                    btn.innerText = "通信中... (周回ルート計算中)";
+                    btn.disabled = true;
 
                     try {
                         const response = await fetch('https://api.openrouteservice.org/v2/directions/foot-walking/geojson', {
@@ -509,7 +459,13 @@
                             headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'Authorization': ORS_API_KEY },
                             body: JSON.stringify({
                                 coordinates: [[currentLng, currentLat]],
-                                options: { round_trip: { length: distMeters, points: 3, seed: randomSeed } } // ここも綺麗なデータのみ！
+                                options: { 
+                                    round_trip: { 
+                                        length: distMeters, 
+                                        points: 3, 
+                                        seed: Math.floor(Math.random() * 90) // 0~90の安全なランダム値
+                                    } 
+                                }
                             })
                         });
 
@@ -518,7 +474,29 @@
                             const info = drawRoute(data);
                             alert(`約${info.distKm}km (徒歩約${info.mins}分) の周回ルートを作成しました！`);
                         } else {
-                            alert("ルートが見つかりませんでした。少し距離を変えてみてください。");
+                            // APIの仕様上、RoundTripが失敗した場合は、四角形を計算して無理やりルートを引く安全装置
+                            const side = distMeters / 4; 
+                            const latDiff = side / 111000; 
+                            const lngDiff = side / (111000 * Math.cos(currentLat * Math.PI / 180));
+                            
+                            const p1 = [currentLng, currentLat]; 
+                            const p2 = [currentLng, currentLat + latDiff];
+                            const p3 = [currentLng + lngDiff, currentLat + latDiff]; 
+                            const p4 = [currentLng + lngDiff, currentLat];
+                            
+                            const fallbackResponse = await fetch('https://api.openrouteservice.org/v2/directions/foot-walking/geojson', {
+                                method: 'POST',
+                                headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'Authorization': ORS_API_KEY },
+                                body: JSON.stringify({ coordinates: [p1, p2, p3, p4, p1] })
+                            });
+                            
+                            if (fallbackResponse.ok) {
+                                const fbData = await fallbackResponse.json();
+                                const info = drawRoute(fbData);
+                                alert(`約${info.distKm}km (徒歩約${info.mins}分) の周回ルートを作成しました！`);
+                            } else {
+                                alert("ルートが見つかりませんでした。別の場所で再度お試しください。");
+                            }
                         }
                     } catch(err) {
                         alert("通信エラーが発生しました。時間を置いてやり直してください。");
