@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>マイウォーキングアプリ</title>
     <link rel="apple-touch-icon" href="icon.png">
+    
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -67,20 +68,7 @@
         .status-on { background: #d4edda; color: #155724; } .status-off { background: #f8d7da; color: #721c24; }
 
         .concierge-area { display: flex; gap: 15px; margin-bottom: 15px; align-items: flex-start; }
-        
-        /* ★ アバター画像を縦長の角丸に変更し、上部（顔）を中心に表示する設定 */
-        .avatar-img { 
-            width: 70px; 
-            height: 95px; 
-            border-radius: 15px; 
-            object-fit: cover; 
-            object-position: top center; 
-            border: 3px solid #27ae60; 
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15); 
-            background-color: #fff; 
-            flex-shrink: 0; 
-        }
-        
+        .avatar-img { width: 70px; height: 95px; border-radius: 15px; object-fit: cover; object-position: top center; border: 3px solid #27ae60; box-shadow: 0 2px 8px rgba(0,0,0,0.15); background-color: #fff; flex-shrink: 0; }
         .bubble { position: relative; background: #fff; border-radius: 15px; padding: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); flex: 1; font-size: 0.9em; line-height: 1.4; border: 1px solid #e0e0e0; }
         .bubble::before { content: ''; position: absolute; top: 30px; left: -10px; border-width: 10px 10px 10px 0; border-style: solid; border-color: transparent #fff transparent transparent; z-index: 2; }
         .bubble::after { content: ''; position: absolute; top: 29px; left: -12px; border-width: 11px 11px 11px 0; border-style: solid; border-color: transparent #e0e0e0 transparent transparent; z-index: 1; }
@@ -100,11 +88,11 @@
             <div class="bubble">
                 <div id="ai-message">おはようございます！今日の調子はいかがですか？下のボタンから私に話しかけてくださいね！</div>
                 <div class="concierge-controls">
-                    <select id="ai-persona">
-                        <option value="maid">🌸 優しいメイド</option>
-                        <option value="tsundere">💢 ツンデレ幼馴染</option>
-                        <option value="coach">🔥 熱血コーチ</option>
-                        <option value="secretary">👓 クールな秘書</option>
+                    <select id="ai-persona" onchange="localStorage.setItem('aiPersona', this.value)">
+                        <option value="maid"> 優しいメイド</option>
+                        <option value="tsundere"> ツンデレ幼馴染</option>
+                        <option value="coach"> 熱血コーチ</option>
+                        <option value="secretary"> クールな秘書</option>
                     </select>
                     <button onclick="getAiAdvice()" id="ai-btn">💬 アドバイスを聞く</button>
                 </div>
@@ -113,7 +101,7 @@
 
         <div id="tab-walk" class="main-tab-content active">
             <div class="card">
-                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v10.5</span></h1>
+                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v10.6</span></h1>
                 <div id="wake-lock-status" class="status-off">スリープ防止：OFF (画面タップ)</div>
                 
                 <div style="background: #f0f4f8; padding: 10px; border-radius: 10px; margin-bottom: 15px;">
@@ -183,6 +171,8 @@
                     <div class="profile-row"><span>生年月日:</span> <div><input type="date" id="dob-input" onchange="calcAll()" style="width:130px;"> (<span id="calc-age">--</span>歳)</div></div>
                     <div class="profile-row"><span>身長(cm):</span> <input type="number" id="height-input" class="inline-input" value="170" oninput="calcAll()"></div>
                     <div class="profile-row"><span>体重(kg):</span> <input type="number" id="weight-input" class="inline-input" value="65" oninput="calcAll()"></div>
+                    <div class="profile-row"><span>目標歩数(歩):</span> <input type="number" id="target-steps-input" class="inline-input" value="8000" oninput="calcAll()"></div>
+                    
                     <div style="text-align: center; margin-top: 10px; font-size: 0.9em; color: #555;">
                         BMI: <strong id="bmi-display">0.0</strong> ｜ 基礎代謝: <strong id="bmr-display">0</strong> kcal
                     </div>
@@ -247,7 +237,7 @@
             if (key) {
                 localStorage.setItem('geminiApiKey', key);
                 alert("APIキーをiPhone内に安全に保存しました！");
-                document.getElementById('ai-message').innerText = "顔が見えるようになりましたか？さっそくお話ししましょう！";
+                document.getElementById('ai-message').innerText = "APIキーの登録ありがとうございます！さっそくお話ししましょう！";
             } else {
                 localStorage.removeItem('geminiApiKey');
                 alert("APIキーを削除しました。");
@@ -274,6 +264,8 @@
             const bmrText = document.getElementById('bmr-display').innerText;
             const inCalText = document.getElementById('total-kcal').innerText;
             const balText = document.getElementById('balance-result').innerText;
+            // ★ AIに送るために目標歩数を取得
+            const targetSteps = document.getElementById('target-steps-input').value || 8000;
             
             const persona = document.getElementById('ai-persona').value;
             let personaPrompt = "";
@@ -282,12 +274,14 @@
             if(persona === 'coach') personaPrompt = `あなたは熱血でポジティブなスポーツコーチです。ユーザーを「${userName}」と呼び、モチベーションが爆発するような熱い言葉とテンションで応援してください。語尾は「〜だぞ！」「〜していこうぜ！」など力強く。`;
             if(persona === 'secretary') personaPrompt = `あなたはクールで知的、非常に優秀な秘書です。ユーザーを「${userName}」と呼び、冷静かつ論理的にデータを分析し、無駄のない的確なアドバイスを淡々と伝えてください。語尾は「〜です。」「〜を推奨します。」など知的に。`;
 
+            // ★ プロンプトに目標歩数を追加
             const prompt = `
             ${personaPrompt}
             以下のユーザーの今日の健康データを分析し、短く（2〜3文程度で）自然な日本語の話し言葉でアドバイスやリアクションを返してください。マークダウン（**など）や箇条書きは絶対に使わず、そのまま吹き出しに入る文章だけにしてください。
 
             【今日のデータ】
-            ・歩数: ${steps}歩
+            ・目標歩数: ${targetSteps} 歩
+            ・現在の歩数: ${steps} 歩
             ・運動による消費カロリー: ${activeCal} kcal
             ・摂取カロリー: ${inCalText} kcal
             ・基礎代謝: ${bmrText} kcal
@@ -319,8 +313,13 @@
         };
 
         window.onload = function() {
+            // ★ APIキーの復元
             const savedKey = localStorage.getItem('geminiApiKey');
             if (savedKey) document.getElementById('api-key-input').value = savedKey;
+
+            // ★ 選択した性格（ペルソナ）の復元
+            const savedPersona = localStorage.getItem('aiPersona');
+            if (savedPersona) document.getElementById('ai-persona').value = savedPersona;
 
             window.switchMainTab = function(tabName) {
                 document.querySelectorAll('.main-tab-content').forEach(el => el.classList.remove('active'));
@@ -381,12 +380,15 @@
                     const nick = document.getElementById('nickname-input').value;
                     let displayName = "あなた";
                     if (nick) displayName = nick; else if (real) displayName = real;
-                    document.getElementById('app-title').innerHTML = `${displayName}の健康ログ <span class="version-badge">v10.5</span>`;
+                    document.getElementById('app-title').innerHTML = `${displayName}の健康ログ <span class="version-badge">v10.6</span>`;
 
                     const w = parseFloat(document.getElementById('weight-input').value) || 0;
                     const h = parseFloat(document.getElementById('height-input').value) || 0;
                     const g = document.getElementById('gender-input').value;
                     const dobStr = document.getElementById('dob-input').value;
+                    // ★ 目標歩数を取得
+                    const targetSteps = parseFloat(document.getElementById('target-steps-input').value) || 8000;
+                    
                     let a = 0;
                     if (dobStr) {
                         const dob = new Date(dobStr); const today = new Date();
@@ -428,12 +430,14 @@
                     else { balDiv.innerHTML = `✨ ${balance > 0 ? '＋'+balance : balance} kcal (超適正ペース!)`; balDiv.className = "balance-result result-good"; }
 
                     const cm = { bf: [getVal('bf-cal'), getVal('bf-p'), getVal('bf-f'), getVal('bf-c'), getVal('bf-s')], lu: [getVal('lu-cal'), getVal('lu-p'), getVal('lu-f'), getVal('lu-c'), getVal('lu-s')], dn: [getVal('dn-cal'), getVal('dn-p'), getVal('dn-f'), getVal('dn-c'), getVal('dn-s')], sn: [getVal('sn-cal'), getVal('sn-p'), getVal('sn-f'), getVal('sn-c'), getVal('sn-s')] };
-                    localStorage.setItem('userProfileV6', JSON.stringify({realname: real, nickname: nick, weight: w, height: h, dob: dobStr, gender: g, meals: cm}));
+                    // ★ 目標歩数も含めて userProfileV7 として保存
+                    localStorage.setItem('userProfileV7', JSON.stringify({realname: real, nickname: nick, weight: w, height: h, dob: dobStr, gender: g, targetSteps: targetSteps, meals: cm}));
                 } catch(e) {}
             };
 
             try {
-                const savedStr = localStorage.getItem('userProfileV6') || localStorage.getItem('userProfileV4') || localStorage.getItem('userProfileV2');
+                // ★ 古いデータも読み込めるように設定
+                const savedStr = localStorage.getItem('userProfileV7') || localStorage.getItem('userProfileV6') || localStorage.getItem('userProfileV4') || localStorage.getItem('userProfileV2');
                 if (savedStr) {
                     const sp = JSON.parse(savedStr);
                     if (sp.realname) document.getElementById('realname-input').value = sp.realname;
@@ -442,6 +446,7 @@
                     if (sp.height) document.getElementById('height-input').value = sp.height;
                     if (sp.gender) document.getElementById('gender-input').value = sp.gender;
                     if (sp.dob) document.getElementById('dob-input').value = sp.dob;
+                    if (sp.targetSteps) document.getElementById('target-steps-input').value = sp.targetSteps; // 目標歩数の復元
                     if (sp.meals) {
                         const sv = (p, a) => { if(a[0]) document.getElementById(p+'-cal').value = a[0]; if(a[1]) document.getElementById(p+'-p').value = a[1]; if(a[2]) document.getElementById(p+'-f').value = a[2]; if(a[3]) document.getElementById(p+'-c').value = a[3]; if(a[4]) document.getElementById(p+'-s').value = a[4]; };
                         sv('bf', sp.meals.bf); sv('lu', sp.meals.lu); sv('dn', sp.meals.dn); sv('sn', sp.meals.sn);
@@ -500,12 +505,22 @@
                 const goalPath = L.polyline([], { color: '#2980b9', weight: 6, opacity: 0.8 }).addTo(map);
 
                 let currentLat = 35.6812; let currentLng = 139.7671;
+                
+                // ★ 地図の強制スクロール戻り防止フラグ
+                let isFirstLocation = true;
 
                 if (navigator.geolocation) {
                     navigator.geolocation.watchPosition(p => {
                         currentLat = p.coords.latitude; currentLng = p.coords.longitude;
                         const pos = [currentLat, currentLng];
-                        map.setView(pos); marker.setLatLng(pos);
+                        
+                        // ★ アプリ起動時の最初の1回だけ現在地にカメラを合わせる
+                        if (isFirstLocation) {
+                            map.setView(pos, 15);
+                            isFirstLocation = false;
+                        }
+                        
+                        marker.setLatLng(pos);
                         pathPoints.push(pos); walkingPath.setLatLngs(pathPoints);
                     }, null, { enableHighAccuracy: true });
                 }
@@ -634,7 +649,7 @@
 
                         const routeCoords = bestData.features[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
                         goalPath.setLatLngs(routeCoords);
-                        map.fitBounds(goalPath.getBounds());
+                        map.fitBounds(goalPath.getBounds()); // ★ ルート完成時だけカメラを合わせる
                         
                         const actualDistKm = (bestData.features[0].properties.summary.distance / 1000).toFixed(2);
                         const actualMins = Math.round(data.features[0].properties.summary.duration / 60);
