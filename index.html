@@ -450,4 +450,143 @@
                                 const wpLat = midLat + (ry / 111);
                                 const wpLng = midLng + (rx / (111 * Math.cos(midLat * Math.PI / 180)));
 
-                                const tempCoords = [ [currentLng, currentLat], [wpLng, wpLat], [destLng, destLat]
+                                const tempCoords = [ [currentLng, currentLat], [wpLng, wpLat], [destLng, destLat] ];
+
+                                try {
+                                    const response = await fetch('https://api.openrouteservice.org/v2/directions/foot-hiking/geojson', {
+                                        method: 'POST',
+                                        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'Authorization': ORS_API_KEY },
+                                        body: JSON.stringify({ coordinates: tempCoords })
+                                    });
+
+                                    // ★ サーバー制限（429）に引っかかったらループを抜ける
+                                    if (response.status === 429) {
+                                        alert("サーバーの通信制限（1分間に40回）に達しました。1分ほど待ってから再度お試しください！");
+                                        break; 
+                                    }
+
+                                    if (response.ok) {
+                                        const data = await response.json();
+                                        const actualDist = data.features[0].properties.summary.distance;
+                                        const diff = Math.abs(actualDist - distMeters);
+                                        
+                                        if (diff < minDiff) { minDiff = diff; bestData = data; }
+                                        if (diff <= distMeters * 0.3 || diff <= 300) break;
+                                    }
+                                } catch(err) {}
+                                
+                                // ★ サーバーをパンクさせないために、0.5秒のひと呼吸を置く
+                                await delay(500);
+                            }
+
+                            if (bestData) {
+                                const routeCoords = bestData.features[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
+                                goalPath.setLatLngs(routeCoords);
+                                map.fitBounds(goalPath.getBounds());
+                                const finalDist = (bestData.features[0].properties.summary.distance / 1000).toFixed(2);
+                                const finalMins = Math.round(bestData.features[0].properties.summary.duration / 60);
+                                alert(`目的地へ向かう、約${finalDist}km (徒歩約${finalMins}分) の「大回り散歩ルート」を作成しました！`);
+                                btn.innerText = "おすすめルートを検索";
+                                btn.disabled = false;
+                                return;
+                            } else {
+                                alert("遠回りルートが作れませんでした。距離を変えるか、ピンを置き直してください。");
+                                btn.innerText = "おすすめルートを検索";
+                                btn.disabled = false;
+                                return;
+                            }
+                        }
+
+                        // 最短ルートの場合
+                        try {
+                            const response = await fetch('https://api.openrouteservice.org/v2/directions/foot-hiking/geojson', {
+                                method: 'POST',
+                                headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'Authorization': ORS_API_KEY },
+                                body: JSON.stringify({ coordinates: coordinatesToRequest })
+                            });
+                            if (response.status === 429) {
+                                alert("サーバーの通信制限（1分間に40回）に達しました。1分ほど待ってから再度お試しください！");
+                                return;
+                            }
+                            const data = await response.json();
+                            const routeCoords = data.features[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
+                            goalPath.setLatLngs(routeCoords);
+                            map.fitBounds(goalPath.getBounds());
+                            const finalDist = (data.features[0].properties.summary.distance / 1000).toFixed(2);
+                            const finalMins = Math.round(data.features[0].properties.summary.duration / 60);
+                            alert(`目的地への最短ルート（約${finalDist}km / 約${finalMins}分）を作成しました！`);
+                        } catch(err) {
+                            alert("通信エラーが発生しました。");
+                        } finally {
+                            btn.innerText = "おすすめルートを検索";
+                            btn.disabled = false;
+                        }
+                        return;
+                    }
+
+                    // ==========================================
+                    // 🔄 周回モード
+                    // ==========================================
+                    btn.innerText = "通信中... (AI散歩ナビ計算中)";
+                    btn.disabled = true;
+
+                    let bestData = null;
+                    let minDiff = Infinity;
+
+                    try {
+                        for (let i = 0; i < 3; i++) {
+                            const randomSeed = Math.floor(Math.random() * 10000);
+                            const response = await fetch('https://api.openrouteservice.org/v2/directions/foot-hiking/geojson', {
+                                method: 'POST',
+                                headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'Authorization': ORS_API_KEY },
+                                body: JSON.stringify({
+                                    coordinates: [[currentLng, currentLat]],
+                                    options: { round_trip: { length: distMeters, points: 3, seed: randomSeed } }
+                                })
+                            });
+
+                            // ★ ここでもサーバー制限のチェックとひと呼吸を追加
+                            if (response.status === 429) {
+                                alert("サーバーの通信制限（1分間に40回）に達しました。1分ほど待ってから再度お試しください！");
+                                break;
+                            }
+
+                            if (response.ok) {
+                                const data = await response.json();
+                                const actualDist = data.features[0].properties.summary.distance;
+                                const diff = Math.abs(actualDist - distMeters);
+                                if (diff < minDiff) { minDiff = diff; bestData = data; }
+                                if (diff <= distMeters * 0.3 || diff <= 300) break;
+                            }
+                            await delay(500); // 0.5秒待つ
+                        }
+
+                        if (!bestData) {
+                            alert("ルートが見つかりませんでした。少し距離を変えてみてください。");
+                            btn.innerText = "おすすめルートを検索";
+                            btn.disabled = false;
+                            return;
+                        }
+
+                        const routeCoords = bestData.features[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
+                        goalPath.setLatLngs(routeCoords);
+                        map.fitBounds(goalPath.getBounds());
+                        
+                        const actualDistKm = (bestData.features[0].properties.summary.distance / 1000).toFixed(2);
+                        const actualMins = Math.round(bestData.features[0].properties.summary.duration / 60);
+                        
+                        alert(`散歩道に沿った約${actualDistKm}km (徒歩約${actualMins}分) の周回ルートを作成しました！`);
+
+                    } catch(err) {
+                        console.error(err);
+                        alert("通信中にエラーが発生しました。");
+                    } finally {
+                        btn.innerText = "おすすめルートを検索";
+                        btn.disabled = false;
+                    }
+                };
+            } catch(e) {}
+        };
+    </script>
+</body>
+</html>
