@@ -83,14 +83,14 @@
         .ai-typing { animation: blink 1.5s infinite; color: #888; font-weight: bold; }
         @keyframes blink { 0% {opacity: 0.2;} 50% {opacity: 1;} 100% {opacity: 0.2;} }
 
-        /* ★ 絶対に崩れない全画面操作パネル（下から60px浮かす） */
+        /* ★ 絶対に崩れない全画面操作パネル（上部配置） */
         #fullscreen-controls { display: none; }
         #map-container.is-fullscreen #fullscreen-controls {
             display: flex;
             flex-direction: column;
             gap: 8px;
             position: absolute;
-            bottom: 60px; /* ★黒い帯を確実に回避する高さ */
+            top: calc(env(safe-area-inset-top, 40px) + 60px); /* 閉じるボタンのすぐ下 */
             left: 50%;
             transform: translateX(-50%);
             z-index: 10001;
@@ -106,18 +106,18 @@
             display: flex; 
             gap: 6px; 
             width: 100%; 
-            align-items: stretch; /* ★ボタンの高さを綺麗に揃える */
+            align-items: stretch; 
         }
         #fullscreen-controls button {
             flex: 1; 
-            padding: 12px 2px; 
+            padding: 10px 4px; /* 横の余白を詰める */
             font-size: 0.85em; 
             font-weight: bold; 
             border: none; 
             border-radius: 8px; 
             color: white; 
             cursor: pointer;
-            white-space: nowrap; /* ★文字の折り返しを禁止して不揃いを防ぐ */
+            white-space: nowrap; /* ★文字の折り返しを禁止して不揃いを防ぐ！ */
             display: flex;
             align-items: center;
             justify-content: center;
@@ -147,7 +147,7 @@
 
         <div id="tab-walk" class="main-tab-content active">
             <div class="card">
-                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v10.14</span></h1>
+                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v10.15</span></h1>
                 <div id="wake-lock-status" class="status-off">スリープ防止：OFF (画面タップ)</div>
                 
                 <div style="background: #f0f4f8; padding: 10px; border-radius: 10px; margin-bottom: 15px;">
@@ -299,6 +299,7 @@
         let currentLat = 35.6812; 
         let currentLng = 139.7671;
 
+        // ★ 自動追従モードのスイッチ
         let isTrackingMode = true; 
 
         window.saveApiKey = function() {
@@ -356,6 +357,7 @@
             }
         };
 
+        // ★ 「開始」ボタンの処理：追従モードをONにして現在地へグッとズーム
         window.centerMap = function() {
             if (window.map && currentLat && currentLng) {
                 isTrackingMode = true; 
@@ -453,7 +455,7 @@
                     const nick = document.getElementById('nickname-input').value;
                     let displayName = "あなた";
                     if (nick) displayName = nick; else if (real) displayName = real;
-                    document.getElementById('app-title').innerHTML = `${displayName}の健康ログ <span class="version-badge">v10.14</span>`;
+                    document.getElementById('app-title').innerHTML = `${displayName}の健康ログ <span class="version-badge">v10.15</span>`;
 
                     const w = parseFloat(document.getElementById('weight-input').value) || 0;
                     const h = parseFloat(document.getElementById('height-input').value) || 0;
@@ -567,8 +569,9 @@
             };
 
             try {
+                // ★ ズームボタンを右下に強制移動！
                 window.map = L.map('map', { zoomControl: false }).setView([35.6812, 139.7671], 15);
-                L.control.zoom({ position: 'topleft' }).addTo(window.map);
+                L.control.zoom({ position: 'bottomright' }).addTo(window.map);
                 
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
                 const marker = L.marker([35.6812, 139.7671]).addTo(map);
@@ -578,6 +581,7 @@
 
                 let isFirstLocation = true;
 
+                // ★ 指で動かした時に追従モードをOFFにする
                 window.map.on('dragstart', function() {
                     isTrackingMode = false;
                 });
@@ -592,6 +596,7 @@
                             map.setView(pos, 15);
                             isFirstLocation = false;
                         } else if (isTrackingMode) {
+                            // 追従モードがONなら現在のズーム倍率でついていく
                             map.setView(pos, map.getZoom());
                         }
                         
@@ -680,6 +685,7 @@
                             window.goalPath.setLatLngs(routeCoords);
                             map.fitBounds(window.goalPath.getBounds());
                             
+                            // ★ ルートを引いた直後は自動追従をOFFにして全体を見せる
                             isTrackingMode = false;
                             
                             const actualDistKm = (data.features[0].properties.summary.distance / 1000).toFixed(2);
@@ -749,6 +755,7 @@
                         window.goalPath.setLatLngs(routeCoords);
                         map.fitBounds(window.goalPath.getBounds());
                         
+                        // ★ ルートを引いた直後は自動追従をOFFにして全体を見せる
                         isTrackingMode = false;
                         
                         const actualDistKm = (bestData.features[0].properties.summary.distance / 1000).toFixed(2);
