@@ -34,11 +34,15 @@
         
         #map-container { position: relative; margin-bottom: 15px; }
         #map { height: 300px; width: 100%; border-radius: 15px; border: 2px solid #ddd; z-index: 1; }
+        
+        /* 通常時の拡大ボタン */
         #fullscreen-btn { position: absolute; top: 10px; right: 10px; z-index: 10001; padding: 8px 12px; background: white; border: 2px solid #ccc; border-radius: 8px; cursor: pointer; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
         
         #map-container.is-fullscreen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 10000; margin: 0; background: white; }
         #map-container.is-fullscreen #map { height: 100vh !important; border-radius: 0; border: none; }
-        #map-container.is-fullscreen #fullscreen-btn { top: env(safe-area-inset-top, 40px); right: 20px; background: #e74c3c; color: white; border: none; font-size: 1.1em; }
+        
+        /* ★ フルスクリーン時は元の独立した閉じるボタンを隠し、パネル内に合体させる */
+        #map-container.is-fullscreen #fullscreen-btn { display: none; }
 
         input[type="number"], input[type="text"], input[type="date"], input[type="password"], select { padding: 8px; border-radius: 5px; border: 1px solid #ccc; font-size: 1em; width: 100%; box-sizing: border-box; }
         .inline-input { width: 120px; display: inline-block; text-align: right; }
@@ -79,31 +83,30 @@
         .ai-typing { animation: blink 1.5s infinite; color: #888; font-weight: bold; }
         @keyframes blink { 0% {opacity: 0.2;} 50% {opacity: 1;} 100% {opacity: 0.2;} }
 
-        /* ★ 全画面表示時専用のフローティングコントロール（小型化） */
+        /* ★ 全画面表示時専用の一体型コントロールパネル */
         #fullscreen-controls { display: none; }
         #map-container.is-fullscreen #fullscreen-controls {
             display: flex;
             flex-direction: column;
-            gap: 6px; /* ★隙間を狭く */
+            gap: 6px;
             position: absolute;
-            top: calc(env(safe-area-inset-top, 40px) + 50px);
+            top: env(safe-area-inset-top, 15px); /* 画面上部にピタッと配置 */
             left: 50%;
             transform: translateX(-50%);
             z-index: 10001;
-            width: auto; /* ★横幅をシュッとスマートに */
-            min-width: 280px;
+            width: 95%; /* 横幅を広げてボタンを並べる */
+            max-width: 450px;
             background: rgba(255, 255, 255, 0.95);
-            padding: 8px; /* ★余白を小さく */
-            border-radius: 10px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            padding: 8px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.25);
             backdrop-filter: blur(5px);
         }
-        #fullscreen-controls .fs-btn-row { display: flex; gap: 6px; width: 100%; }
+        #fullscreen-controls .fs-btn-row { display: flex; gap: 4px; width: 100%; }
         #fullscreen-controls button {
-            /* ★ボタンの上下の厚みと文字サイズを少し小さく */
-            flex: 1; padding: 8px 4px; font-size: 0.85em; font-weight: bold; border: none; border-radius: 6px; color: white; cursor: pointer;
+            flex: 1; padding: 10px 0; font-size: 0.8em; font-weight: bold; border: none; border-radius: 6px; color: white; cursor: pointer; text-align: center;
         }
-        #fullscreen-controls .fs-btn-search { width: 100%; padding: 10px; font-size: 0.95em; background: #3498db; margin-top: 2px; }
+        #fullscreen-controls .fs-btn-search { width: 100%; padding: 12px; font-size: 0.95em; background: #3498db; margin-top: 2px; border-radius: 8px; }
         #fullscreen-controls button:disabled { background: #95a5a6 !important; }
     </style>
 </head>
@@ -128,7 +131,7 @@
 
         <div id="tab-walk" class="main-tab-content active">
             <div class="card">
-                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v10.11</span></h1>
+                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v10.12</span></h1>
                 <div id="wake-lock-status" class="status-off">スリープ防止：OFF (画面タップ)</div>
                 
                 <div style="background: #f0f4f8; padding: 10px; border-radius: 10px; margin-bottom: 15px;">
@@ -183,6 +186,7 @@
                         <button style="background: #2980b9;" onclick="centerMap()">📍 開始</button>
                         <button style="background: #27ae60;" onclick="enableWaypointMode()">🟢 追加</button>
                         <button style="background: #e74c3c;" onclick="clearMap()">✖ 消去</button>
+                        <button style="background: #34495e;" onclick="toggleFullscreen()">❌ 閉じる</button>
                     </div>
                     <button id="fs-route-btn" class="fs-btn-search" onclick="generateGoalRoute()">🔍 ルートを再検索</button>
                 </div>
@@ -335,7 +339,6 @@
             }
         };
 
-        // ★ 「開始」ボタンのズームを 15 から 18 に拡大！
         window.centerMap = function() {
             if (window.map && currentLat && currentLng) {
                 window.map.setView([currentLat, currentLng], 18);
@@ -380,12 +383,11 @@
 
             window.toggleFullscreen = function() {
                 const container = document.getElementById('map-container');
-                const btn = document.getElementById('fullscreen-btn');
                 isFullscreen = !isFullscreen;
                 if (isFullscreen) {
-                    container.classList.add('is-fullscreen'); document.body.classList.add('fullscreen-active'); btn.innerText = "❌ 閉じる";
+                    container.classList.add('is-fullscreen'); document.body.classList.add('fullscreen-active');
                 } else {
-                    container.classList.remove('is-fullscreen'); document.body.classList.remove('fullscreen-active'); btn.innerText = "🗺️ 拡大";
+                    container.classList.remove('is-fullscreen'); document.body.classList.remove('fullscreen-active');
                 }
                 setTimeout(() => { if(window.map) window.map.invalidateSize(); }, 300);
             };
@@ -432,7 +434,7 @@
                     const nick = document.getElementById('nickname-input').value;
                     let displayName = "あなた";
                     if (nick) displayName = nick; else if (real) displayName = real;
-                    document.getElementById('app-title').innerHTML = `${displayName}の健康ログ <span class="version-badge">v10.11</span>`;
+                    document.getElementById('app-title').innerHTML = `${displayName}の健康ログ <span class="version-badge">v10.12</span>`;
 
                     const w = parseFloat(document.getElementById('weight-input').value) || 0;
                     const h = parseFloat(document.getElementById('height-input').value) || 0;
@@ -546,7 +548,6 @@
             };
 
             try {
-                // ★ ズームボタンを右下に移動して配置
                 window.map = L.map('map', { zoomControl: false }).setView([35.6812, 139.7671], 15);
                 L.control.zoom({ position: 'bottomright' }).addTo(window.map);
                 
