@@ -3,6 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    
     <title>マイウォーキングアプリ</title>
     <link rel="apple-touch-icon" href="icon.png">
     
@@ -34,11 +38,15 @@
         
         #map-container { position: relative; margin-bottom: 15px; }
         #map { height: 300px; width: 100%; border-radius: 15px; border: 2px solid #ddd; z-index: 1; }
-        #fullscreen-btn { position: absolute; top: 10px; right: 10px; z-index: 10001; padding: 8px 12px; background: white; border: 2px solid #ccc; border-radius: 8px; cursor: pointer; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        
+        /* 通常画面の「拡大」ボタン */
+        #normal-fullscreen-btn { position: absolute; top: 10px; right: 10px; z-index: 1000; padding: 8px 12px; background: white; border: 2px solid #ccc; border-radius: 8px; cursor: pointer; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
         
         #map-container.is-fullscreen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 10000; margin: 0; background: white; }
         #map-container.is-fullscreen #map { height: 100vh !important; border-radius: 0; border: none; }
-        #map-container.is-fullscreen #fullscreen-btn { top: env(safe-area-inset-top, 40px); right: 20px; background: #e74c3c; color: white; border: none; font-size: 1.1em; }
+        
+        /* 全画面時は通常画面の拡大ボタンを隠す */
+        #map-container.is-fullscreen #normal-fullscreen-btn { display: none; }
 
         input[type="number"], input[type="text"], input[type="date"], input[type="password"], select { padding: 8px; border-radius: 5px; border: 1px solid #ccc; font-size: 1em; width: 100%; box-sizing: border-box; }
         .inline-input { width: 120px; display: inline-block; text-align: right; }
@@ -79,31 +87,46 @@
         .ai-typing { animation: blink 1.5s infinite; color: #888; font-weight: bold; }
         @keyframes blink { 0% {opacity: 0.2;} 50% {opacity: 1;} 100% {opacity: 0.2;} }
 
-        /* ★ 全画面表示時専用のフローティングコントロール（小型化） */
+        /* ★ 全画面表示時専用の「すべてまとめた統合パネル」 */
         #fullscreen-controls { display: none; }
         #map-container.is-fullscreen #fullscreen-controls {
             display: flex;
             flex-direction: column;
-            gap: 6px; /* ★隙間を狭く */
+            gap: 6px;
             position: absolute;
-            top: calc(env(safe-area-inset-top, 40px) + 50px);
+            top: calc(env(safe-area-inset-top, 40px) + 10px); /* 画面上部にピタッと配置 */
             left: 50%;
             transform: translateX(-50%);
             z-index: 10001;
-            width: auto; /* ★横幅をシュッとスマートに */
-            min-width: 280px;
+            width: 96%;
+            max-width: 400px;
             background: rgba(255, 255, 255, 0.95);
-            padding: 8px; /* ★余白を小さく */
+            padding: 8px;
             border-radius: 10px;
             box-shadow: 0 4px 10px rgba(0,0,0,0.2);
             backdrop-filter: blur(5px);
         }
-        #fullscreen-controls .fs-btn-row { display: flex; gap: 6px; width: 100%; }
-        #fullscreen-controls button {
-            /* ★ボタンの上下の厚みと文字サイズを少し小さく */
-            flex: 1; padding: 8px 4px; font-size: 0.85em; font-weight: bold; border: none; border-radius: 6px; color: white; cursor: pointer;
+        #fullscreen-controls .fs-btn-row { 
+            display: flex; 
+            gap: 4px; /* 隙間を極力詰める */
+            width: 100%; 
+            align-items: stretch; 
         }
-        #fullscreen-controls .fs-btn-search { width: 100%; padding: 10px; font-size: 0.95em; background: #3498db; margin-top: 2px; }
+        #fullscreen-controls button {
+            flex: 1; 
+            padding: 10px 0px; 
+            font-size: 0.8em; 
+            font-weight: bold; 
+            border: none; 
+            border-radius: 6px; 
+            color: white; 
+            cursor: pointer;
+            white-space: nowrap; /* ★文字の折り返しを絶対に防ぐ */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #fullscreen-controls .fs-btn-search { width: 100%; padding: 12px; font-size: 1em; background: #3498db; margin-top: 2px; }
         #fullscreen-controls button:disabled { background: #95a5a6 !important; }
     </style>
 </head>
@@ -128,7 +151,7 @@
 
         <div id="tab-walk" class="main-tab-content active">
             <div class="card">
-                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v10.11</span></h1>
+                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v10.16</span></h1>
                 <div id="wake-lock-status" class="status-off">スリープ防止：OFF (画面タップ)</div>
                 
                 <div style="background: #f0f4f8; padding: 10px; border-radius: 10px; margin-bottom: 15px;">
@@ -155,9 +178,9 @@
                     <button id="route-btn" class="action-btn" onclick="generateGoalRoute()">おすすめルートを検索</button>
 
                     <div style="display: flex; gap: 5px; margin-top: 10px;">
-                        <button class="action-btn" style="background: #2980b9; margin-top: 0; font-size: 0.85em; padding: 10px;" onclick="centerMap()">📍 開始(現在地)</button>
-                        <button class="action-btn" style="background: #27ae60; margin-top: 0; font-size: 0.85em; padding: 10px;" onclick="enableWaypointMode()">🟢 追加(中継地)</button>
-                        <button class="action-btn" style="background: #e74c3c; margin-top: 0; font-size: 0.85em; padding: 10px;" onclick="clearMap()">✖ 終了(消去)</button>
+                        <button class="action-btn" style="background: #2980b9; margin-top: 0; font-size: 0.85em; padding: 10px;" onclick="centerMap()">📍 開始</button>
+                        <button class="action-btn" style="background: #27ae60; margin-top: 0; font-size: 0.85em; padding: 10px;" onclick="enableWaypointMode()">🟢 追加</button>
+                        <button class="action-btn" style="background: #e74c3c; margin-top: 0; font-size: 0.85em; padding: 10px;" onclick="clearMap()">✖ 消去</button>
                     </div>
                     
                     <div id="dest-hint" style="display:none; text-align:center; font-size:0.85em; margin-top:10px; font-weight:bold;">
@@ -175,14 +198,15 @@
             </div>
             
             <div id="map-container">
-                <button id="fullscreen-btn" onclick="toggleFullscreen()">🗺️ 拡大</button>
+                <button id="normal-fullscreen-btn" onclick="toggleFullscreen()">🗺️ 拡大</button>
                 <div id="map"></div>
                 
                 <div id="fullscreen-controls">
                     <div class="fs-btn-row">
-                        <button style="background: #2980b9;" onclick="centerMap()">📍 開始</button>
-                        <button style="background: #27ae60;" onclick="enableWaypointMode()">🟢 追加</button>
-                        <button style="background: #e74c3c;" onclick="clearMap()">✖ 消去</button>
+                        <button style="background: #2980b9;" onclick="centerMap()">📍開始</button>
+                        <button style="background: #27ae60;" onclick="enableWaypointMode()">🟢追加</button>
+                        <button style="background: #e74c3c;" onclick="clearMap()">✖消去</button>
+                        <button style="background: #7f8c8d;" onclick="toggleFullscreen()">❌閉じる</button>
                     </div>
                     <button id="fs-route-btn" class="fs-btn-search" onclick="generateGoalRoute()">🔍 ルートを再検索</button>
                 </div>
@@ -280,6 +304,9 @@
         let currentLat = 35.6812; 
         let currentLng = 139.7671;
 
+        // ★ 自動追従モードのスイッチ（初期状態はON）
+        let isTrackingMode = true; 
+
         window.saveApiKey = function() {
             const key = document.getElementById('api-key-input').value.trim();
             if (key) {
@@ -335,9 +362,10 @@
             }
         };
 
-        // ★ 「開始」ボタンのズームを 15 から 18 に拡大！
+        // ★ 「開始」ボタン：追従モードをONにして現在地へズーム(18)
         window.centerMap = function() {
             if (window.map && currentLat && currentLng) {
+                isTrackingMode = true; 
                 window.map.setView([currentLat, currentLng], 18);
             }
         };
@@ -378,14 +406,14 @@
                 if(tabName === 'walk' && window.map) { setTimeout(() => { window.map.invalidateSize(); }, 100); }
             };
 
+            // ★ 全画面切り替えの処理（ボタンが統合されたのでシンプルに）
             window.toggleFullscreen = function() {
                 const container = document.getElementById('map-container');
-                const btn = document.getElementById('fullscreen-btn');
                 isFullscreen = !isFullscreen;
                 if (isFullscreen) {
-                    container.classList.add('is-fullscreen'); document.body.classList.add('fullscreen-active'); btn.innerText = "❌ 閉じる";
+                    container.classList.add('is-fullscreen'); document.body.classList.add('fullscreen-active');
                 } else {
-                    container.classList.remove('is-fullscreen'); document.body.classList.remove('fullscreen-active'); btn.innerText = "🗺️ 拡大";
+                    container.classList.remove('is-fullscreen'); document.body.classList.remove('fullscreen-active');
                 }
                 setTimeout(() => { if(window.map) window.map.invalidateSize(); }, 300);
             };
@@ -432,7 +460,7 @@
                     const nick = document.getElementById('nickname-input').value;
                     let displayName = "あなた";
                     if (nick) displayName = nick; else if (real) displayName = real;
-                    document.getElementById('app-title').innerHTML = `${displayName}の健康ログ <span class="version-badge">v10.11</span>`;
+                    document.getElementById('app-title').innerHTML = `${displayName}の健康ログ <span class="version-badge">v10.16</span>`;
 
                     const w = parseFloat(document.getElementById('weight-input').value) || 0;
                     const h = parseFloat(document.getElementById('height-input').value) || 0;
@@ -546,7 +574,7 @@
             };
 
             try {
-                // ★ ズームボタンを右下に移動して配置
+                // ★ ズームボタンを右下に強制移動
                 window.map = L.map('map', { zoomControl: false }).setView([35.6812, 139.7671], 15);
                 L.control.zoom({ position: 'bottomright' }).addTo(window.map);
                 
@@ -558,6 +586,11 @@
 
                 let isFirstLocation = true;
 
+                // ★ 指で動かした時に追従モードをOFFにする
+                window.map.on('dragstart', function() {
+                    isTrackingMode = false;
+                });
+
                 if (navigator.geolocation) {
                     navigator.geolocation.watchPosition(p => {
                         currentLat = p.coords.latitude; 
@@ -567,6 +600,9 @@
                         if (isFirstLocation) {
                             map.setView(pos, 15);
                             isFirstLocation = false;
+                        } else if (isTrackingMode) {
+                            // 追従モードがONなら現在のズーム倍率でついていく
+                            map.setView(pos, map.getZoom());
                         }
                         
                         marker.setLatLng(pos);
@@ -654,6 +690,9 @@
                             window.goalPath.setLatLngs(routeCoords);
                             map.fitBounds(window.goalPath.getBounds());
                             
+                            // ★ ルートを引いた直後は自動追従をOFFにして全体を見せる
+                            isTrackingMode = false;
+                            
                             const actualDistKm = (data.features[0].properties.summary.distance / 1000).toFixed(2);
                             const actualMins = Math.round(data.features[0].properties.summary.duration / 60);
                             
@@ -720,6 +759,9 @@
                         const routeCoords = bestData.features[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
                         window.goalPath.setLatLngs(routeCoords);
                         map.fitBounds(window.goalPath.getBounds());
+                        
+                        // ★ ルートを引いた直後は自動追従をOFFにして全体を見せる
+                        isTrackingMode = false;
                         
                         const actualDistKm = (bestData.features[0].properties.summary.distance / 1000).toFixed(2);
                         const actualMins = Math.round(bestData.features[0].properties.summary.duration / 60);
