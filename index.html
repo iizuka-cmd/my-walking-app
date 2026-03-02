@@ -101,7 +101,7 @@
 
         <div id="tab-walk" class="main-tab-content active">
             <div class="card">
-                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v10.6</span></h1>
+                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v10.7</span></h1>
                 <div id="wake-lock-status" class="status-off">スリープ防止：OFF (画面タップ)</div>
                 
                 <div style="background: #f0f4f8; padding: 10px; border-radius: 10px; margin-bottom: 15px;">
@@ -113,7 +113,7 @@
                         </label>
                         <label>
                             <input type="radio" name="route-mode" value="dest" onchange="toggleRouteMode()">
-                            <span>📍 目的地モード<br><small style="font-size:0.7em;color:#777;">地図タップで最短ルート</small></span>
+                            <span>📍 目的地モード<br><small style="font-size:0.7em;color:#777;">地図タップでルート作成</small></span>
                         </label>
                     </div>
 
@@ -126,9 +126,15 @@
                     </div>
 
                     <button id="route-btn" class="action-btn" onclick="generateGoalRoute()">おすすめルートを検索</button>
+
+                    <div style="display: flex; gap: 5px; margin-top: 10px;">
+                        <button class="action-btn" style="background: #27ae60; margin-top: 0; font-size: 0.9em; padding: 10px;" onclick="centerMap()">📍 開始(現在地)</button>
+                        <button class="action-btn" style="background: #2980b9; margin-top: 0; font-size: 0.9em; padding: 10px;" onclick="enableWaypointMode()">🔵 中継地追加</button>
+                        <button class="action-btn" style="background: #e74c3c; margin-top: 0; font-size: 0.9em; padding: 10px;" onclick="clearMap()">✖ 終了(クリア)</button>
+                    </div>
                     
-                    <div id="dest-hint" style="display:none; text-align:center; font-size:0.85em; color:#e74c3c; margin-top:5px; font-weight:bold;">
-                        地図を直接タップして、目的地（赤いピン）を立ててください。
+                    <div id="dest-hint" style="display:none; text-align:center; font-size:0.85em; margin-top:10px; font-weight:bold;">
+                        地図を直接タップして、<span style='color:#e74c3c;'>目的地（赤いピン）</span>を立ててください。
                     </div>
                 </div>
 
@@ -230,7 +236,11 @@
         let myChart = null;
         window.currentGraphMode = 'weight';
         let isFullscreen = false;
+        
+        // ★ マーカーとモード管理の変数
         let destMarker = null;
+        let waypointMarker = null; // 青ピン（中継地）用
+        let isWaypointMode = false; // 中継地追加モードかどうかのフラグ
 
         window.saveApiKey = function() {
             const key = document.getElementById('api-key-input').value.trim();
@@ -264,7 +274,6 @@
             const bmrText = document.getElementById('bmr-display').innerText;
             const inCalText = document.getElementById('total-kcal').innerText;
             const balText = document.getElementById('balance-result').innerText;
-            // ★ AIに送るために目標歩数を取得
             const targetSteps = document.getElementById('target-steps-input').value || 8000;
             
             const persona = document.getElementById('ai-persona').value;
@@ -274,7 +283,6 @@
             if(persona === 'coach') personaPrompt = `あなたは熱血でポジティブなスポーツコーチです。ユーザーを「${userName}」と呼び、モチベーションが爆発するような熱い言葉とテンションで応援してください。語尾は「〜だぞ！」「〜していこうぜ！」など力強く。`;
             if(persona === 'secretary') personaPrompt = `あなたはクールで知的、非常に優秀な秘書です。ユーザーを「${userName}」と呼び、冷静かつ論理的にデータを分析し、無駄のない的確なアドバイスを淡々と伝えてください。語尾は「〜です。」「〜を推奨します。」など知的に。`;
 
-            // ★ プロンプトに目標歩数を追加
             const prompt = `
             ${personaPrompt}
             以下のユーザーの今日の健康データを分析し、短く（2〜3文程度で）自然な日本語の話し言葉でアドバイスやリアクションを返してください。マークダウン（**など）や箇条書きは絶対に使わず、そのまま吹き出しに入る文章だけにしてください。
@@ -312,12 +320,42 @@
             }
         };
 
+        // ★ 新機能：地図を現在地に戻す「開始」ボタン
+        window.centerMap = function() {
+            if (window.currentLat && window.currentLng && window.map) {
+                window.map.setView([window.currentLat, window.currentLng], 15);
+            }
+        };
+
+        // ★ 新機能：青いピンを立てる「追加」ボタン
+        window.enableWaypointMode = function() {
+            const mode = document.querySelector('input[name="route-mode"]:checked').value;
+            if (mode !== 'dest') {
+                alert("中継地を追加するには、まず上のボタンで「📍 目的地モード」を選んでください！");
+                return;
+            }
+            isWaypointMode = true;
+            document.getElementById('dest-hint').innerHTML = "地図を直接タップして、<span style='color:#2980b9;'>中継地（青いピン）</span>を立ててください。";
+        };
+
+        // ★ 新機能：すべて消す「終了」ボタン
+        window.clearMap = function() {
+            if (destMarker) { window.map.removeLayer(destMarker); destMarker = null; }
+            if (waypointMarker) { window.map.removeLayer(waypointMarker); waypointMarker = null; }
+            if (window.goalPath) window.goalPath.setLatLngs([]);
+            isWaypointMode = false;
+            
+            const mode = document.querySelector('input[name="route-mode"]:checked').value;
+            if (mode === 'dest') {
+                document.getElementById('dest-hint').innerHTML = "地図を直接タップして、<span style='color:#e74c3c;'>目的地（赤いピン）</span>を立ててください。";
+            }
+            alert("地図のピンとルートをすべてクリアしました！");
+        };
+
         window.onload = function() {
-            // ★ APIキーの復元
             const savedKey = localStorage.getItem('geminiApiKey');
             if (savedKey) document.getElementById('api-key-input').value = savedKey;
 
-            // ★ 選択した性格（ペルソナ）の復元
             const savedPersona = localStorage.getItem('aiPersona');
             if (savedPersona) document.getElementById('ai-persona').value = savedPersona;
 
@@ -341,6 +379,7 @@
                 setTimeout(() => { if(window.map) window.map.invalidateSize(); }, 300);
             };
 
+            // ★ モード切替時に地図を自動でクリアする
             window.toggleRouteMode = function() {
                 const mode = document.querySelector('input[name="route-mode"]:checked').value;
                 const inputArea = document.getElementById('distance-input-area');
@@ -349,13 +388,18 @@
                 
                 if (mode === 'dest') {
                     inputArea.style.display = 'none'; 
+                    hint.innerHTML = "地図を直接タップして、<span style='color:#e74c3c;'>目的地（赤いピン）</span>を立ててください。";
                     hint.style.display = 'block';
                     btn.innerText = "目的地までのルートを検索";
                 } else {
                     inputArea.style.display = 'flex'; 
                     hint.style.display = 'none';
                     btn.innerText = "おすすめルートを検索";
-                    if (destMarker) { map.removeLayer(destMarker); destMarker = null; }
+                    // 周回モードに戻したときはピンと線を全部消す
+                    if (destMarker) { window.map.removeLayer(destMarker); destMarker = null; }
+                    if (waypointMarker) { window.map.removeLayer(waypointMarker); waypointMarker = null; }
+                    if (window.goalPath) window.goalPath.setLatLngs([]);
+                    isWaypointMode = false;
                 }
             };
 
@@ -380,13 +424,12 @@
                     const nick = document.getElementById('nickname-input').value;
                     let displayName = "あなた";
                     if (nick) displayName = nick; else if (real) displayName = real;
-                    document.getElementById('app-title').innerHTML = `${displayName}の健康ログ <span class="version-badge">v10.6</span>`;
+                    document.getElementById('app-title').innerHTML = `${displayName}の健康ログ <span class="version-badge">v10.7</span>`;
 
                     const w = parseFloat(document.getElementById('weight-input').value) || 0;
                     const h = parseFloat(document.getElementById('height-input').value) || 0;
                     const g = document.getElementById('gender-input').value;
                     const dobStr = document.getElementById('dob-input').value;
-                    // ★ 目標歩数を取得
                     const targetSteps = parseFloat(document.getElementById('target-steps-input').value) || 8000;
                     
                     let a = 0;
@@ -430,13 +473,11 @@
                     else { balDiv.innerHTML = `✨ ${balance > 0 ? '＋'+balance : balance} kcal (超適正ペース!)`; balDiv.className = "balance-result result-good"; }
 
                     const cm = { bf: [getVal('bf-cal'), getVal('bf-p'), getVal('bf-f'), getVal('bf-c'), getVal('bf-s')], lu: [getVal('lu-cal'), getVal('lu-p'), getVal('lu-f'), getVal('lu-c'), getVal('lu-s')], dn: [getVal('dn-cal'), getVal('dn-p'), getVal('dn-f'), getVal('dn-c'), getVal('dn-s')], sn: [getVal('sn-cal'), getVal('sn-p'), getVal('sn-f'), getVal('sn-c'), getVal('sn-s')] };
-                    // ★ 目標歩数も含めて userProfileV7 として保存
                     localStorage.setItem('userProfileV7', JSON.stringify({realname: real, nickname: nick, weight: w, height: h, dob: dobStr, gender: g, targetSteps: targetSteps, meals: cm}));
                 } catch(e) {}
             };
 
             try {
-                // ★ 古いデータも読み込めるように設定
                 const savedStr = localStorage.getItem('userProfileV7') || localStorage.getItem('userProfileV6') || localStorage.getItem('userProfileV4') || localStorage.getItem('userProfileV2');
                 if (savedStr) {
                     const sp = JSON.parse(savedStr);
@@ -446,7 +487,7 @@
                     if (sp.height) document.getElementById('height-input').value = sp.height;
                     if (sp.gender) document.getElementById('gender-input').value = sp.gender;
                     if (sp.dob) document.getElementById('dob-input').value = sp.dob;
-                    if (sp.targetSteps) document.getElementById('target-steps-input').value = sp.targetSteps; // 目標歩数の復元
+                    if (sp.targetSteps) document.getElementById('target-steps-input').value = sp.targetSteps;
                     if (sp.meals) {
                         const sv = (p, a) => { if(a[0]) document.getElementById(p+'-cal').value = a[0]; if(a[1]) document.getElementById(p+'-p').value = a[1]; if(a[2]) document.getElementById(p+'-f').value = a[2]; if(a[3]) document.getElementById(p+'-c').value = a[3]; if(a[4]) document.getElementById(p+'-s').value = a[4]; };
                         sv('bf', sp.meals.bf); sv('lu', sp.meals.lu); sv('dn', sp.meals.dn); sv('sn', sp.meals.sn);
@@ -501,20 +542,21 @@
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
                 const marker = L.marker([35.6812, 139.7671]).addTo(map);
                 let pathPoints = [];
+                window.goalPath = L.polyline([], { color: '#2980b9', weight: 6, opacity: 0.8 }).addTo(map);
                 const walkingPath = L.polyline([], { color: 'red', weight: 5 }).addTo(map);
-                const goalPath = L.polyline([], { color: '#2980b9', weight: 6, opacity: 0.8 }).addTo(map);
 
-                let currentLat = 35.6812; let currentLng = 139.7671;
+                window.currentLat = 35.6812; 
+                window.currentLng = 139.7671;
                 
-                // ★ 地図の強制スクロール戻り防止フラグ
+                // ★ 地図の強制スクロール戻り防止フラグ（最初だけ現在地に合わせる）
                 let isFirstLocation = true;
 
                 if (navigator.geolocation) {
                     navigator.geolocation.watchPosition(p => {
-                        currentLat = p.coords.latitude; currentLng = p.coords.longitude;
-                        const pos = [currentLat, currentLng];
+                        window.currentLat = p.coords.latitude; 
+                        window.currentLng = p.coords.longitude;
+                        const pos = [window.currentLat, window.currentLng];
                         
-                        // ★ アプリ起動時の最初の1回だけ現在地にカメラを合わせる
                         if (isFirstLocation) {
                             map.setView(pos, 15);
                             isFirstLocation = false;
@@ -525,17 +567,35 @@
                     }, null, { enableHighAccuracy: true });
                 }
 
+                // ★ タップしてピンを置く処理（青ピンか赤ピンか）
                 map.on('click', function(e) {
                     const mode = document.querySelector('input[name="route-mode"]:checked').value;
                     if (mode === 'dest') {
-                        if (destMarker) map.removeLayer(destMarker);
-                        const redIcon = new L.Icon({
-                            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
-                            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-                            iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
-                        });
-                        destMarker = L.marker(e.latlng, {icon: redIcon}).addTo(map);
-                        destMarker.bindPopup("📍 目的地").openPopup();
+                        if (isWaypointMode) {
+                            // 中継地（青ピン）を置く
+                            if (waypointMarker) map.removeLayer(waypointMarker);
+                            const blueIcon = new L.Icon({
+                                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+                                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                                iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
+                            });
+                            waypointMarker = L.marker(e.latlng, {icon: blueIcon}).addTo(map);
+                            waypointMarker.bindPopup("🔵 中継地").openPopup();
+                            
+                            // 1回置いたら自動で目的地モードの表示に戻す
+                            isWaypointMode = false;
+                            document.getElementById('dest-hint').innerHTML = "地図を直接タップして、<span style='color:#e74c3c;'>目的地（赤いピン）</span>を立ててください。";
+                        } else {
+                            // 目的地（赤ピン）を置く
+                            if (destMarker) map.removeLayer(destMarker);
+                            const redIcon = new L.Icon({
+                                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+                                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                                iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
+                            });
+                            destMarker = L.marker(e.latlng, {icon: redIcon}).addTo(map);
+                            destMarker.bindPopup("📍 目的地").openPopup();
+                        }
                     }
                 });
 
@@ -545,6 +605,9 @@
                     const value = parseFloat(document.getElementById('goal-value').value);
                     const mode = document.querySelector('input[name="route-mode"]:checked').value;
 
+                    // ==========================================
+                    // 📍 目的地モード（中継地対応）
+                    // ==========================================
                     if (mode === 'dest') {
                         if (!destMarker) {
                             alert("地図を直接タップして、目的地（赤いピン）を立ててください。");
@@ -556,30 +619,47 @@
                         const destLat = destMarker.getLatLng().lat;
                         const destLng = destMarker.getLatLng().lng;
 
+                        // ★ 中継地がある場合は経由させる！
+                        let reqCoords = [];
+                        if (waypointMarker) {
+                            reqCoords = [
+                                [window.currentLng, window.currentLat],
+                                [waypointMarker.getLatLng().lng, waypointMarker.getLatLng().lat],
+                                [destLng, destLat]
+                            ];
+                        } else {
+                            reqCoords = [
+                                [window.currentLng, window.currentLat],
+                                [destLng, destLat]
+                            ];
+                        }
+
                         try {
                             const response = await fetch('https://api.openrouteservice.org/v2/directions/foot-hiking/geojson', {
                                 method: 'POST',
                                 headers: {
-                                    'Accept': 'application/json, application/geo+json, application/gpx+xml, img/png; charset=utf-8',
+                                    'Accept': 'application/json',
                                     'Content-Type': 'application/json',
                                     'Authorization': ORS_API_KEY
                                 },
-                                body: JSON.stringify({
-                                    coordinates: [[currentLng, currentLat], [destLng, destLat]]
-                                })
+                                body: JSON.stringify({ coordinates: reqCoords })
                             });
 
                             if (!response.ok) throw new Error("API Error");
 
                             const data = await response.json();
                             const routeCoords = data.features[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
-                            goalPath.setLatLngs(routeCoords);
-                            map.fitBounds(goalPath.getBounds());
+                            window.goalPath.setLatLngs(routeCoords);
+                            map.fitBounds(window.goalPath.getBounds());
                             
                             const actualDistKm = (data.features[0].properties.summary.distance / 1000).toFixed(2);
                             const actualMins = Math.round(data.features[0].properties.summary.duration / 60);
                             
-                            alert(`目的地へのルート（約${actualDistKm}km / 徒歩約${actualMins}分）を作成しました！`);
+                            if (waypointMarker) {
+                                alert(`中継地を経由するルート（約${actualDistKm}km / 徒歩約${actualMins}分）を作成しました！`);
+                            } else {
+                                alert(`目的地へのルート（約${actualDistKm}km / 徒歩約${actualMins}分）を作成しました！`);
+                            }
 
                         } catch(err) {
                             console.error(err);
@@ -591,13 +671,15 @@
                         return;
                     }
 
+                    // ==========================================
+                    // 🔄 周回モード
+                    // ==========================================
                     if (!value || value <= 0) return;
                     
                     btn.innerText = "通信中... (AI散歩ナビ計算中)";
                     btn.disabled = true;
 
                     let distMeters = (type === 'distance' ? value : value * 0.0007) * 1000;
-                    
                     let bestData = null;
                     let minDiff = Infinity;
 
@@ -607,19 +689,13 @@
                             const response = await fetch('https://api.openrouteservice.org/v2/directions/foot-hiking/geojson', {
                                 method: 'POST',
                                 headers: {
-                                    'Accept': 'application/json, application/geo+json, application/gpx+xml, img/png; charset=utf-8',
+                                    'Accept': 'application/json',
                                     'Content-Type': 'application/json',
                                     'Authorization': ORS_API_KEY
                                 },
                                 body: JSON.stringify({
-                                    coordinates: [[currentLng, currentLat]],
-                                    options: {
-                                        round_trip: {
-                                            length: distMeters,
-                                            points: 3,
-                                            seed: randomSeed
-                                        }
-                                    }
+                                    coordinates: [[window.currentLng, window.currentLat]],
+                                    options: { round_trip: { length: distMeters, points: 3, seed: randomSeed } }
                                 })
                             });
 
@@ -627,15 +703,8 @@
                                 const data = await response.json();
                                 const actualDist = data.features[0].properties.summary.distance; 
                                 const diff = Math.abs(actualDist - distMeters); 
-                                
-                                if (diff < minDiff) {
-                                    minDiff = diff;
-                                    bestData = data;
-                                }
-
-                                if (diff <= distMeters * 0.3 || diff <= 300) {
-                                    break;
-                                }
+                                if (diff < minDiff) { minDiff = diff; bestData = data; }
+                                if (diff <= distMeters * 0.3 || diff <= 300) break;
                             }
                             await new Promise(resolve => setTimeout(resolve, 400));
                         }
@@ -648,11 +717,11 @@
                         }
 
                         const routeCoords = bestData.features[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
-                        goalPath.setLatLngs(routeCoords);
-                        map.fitBounds(goalPath.getBounds()); // ★ ルート完成時だけカメラを合わせる
+                        window.goalPath.setLatLngs(routeCoords);
+                        map.fitBounds(window.goalPath.getBounds());
                         
                         const actualDistKm = (bestData.features[0].properties.summary.distance / 1000).toFixed(2);
-                        const actualMins = Math.round(data.features[0].properties.summary.duration / 60);
+                        const actualMins = Math.round(bestData.features[0].properties.summary.duration / 60);
                         
                         alert(`散歩道に沿った約${actualDistKm}km (徒歩約${actualMins}分) の周回ルートを作成しました！`);
 
