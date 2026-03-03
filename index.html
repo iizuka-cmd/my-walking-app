@@ -45,7 +45,7 @@
         #map-container.is-fullscreen #map { height: 100vh !important; border-radius: 0; border: none; }
         #map-container.is-fullscreen #normal-fullscreen-btn { display: none; }
 
-        input[type="number"], input[type="text"], input[type="date"], select { padding: 8px; border-radius: 5px; border: 1px solid #ccc; font-size: 1em; width: 100%; box-sizing: border-box; }
+        input[type="number"], input[type="text"], input[type="date"], input[type="password"], select { padding: 8px; border-radius: 5px; border: 1px solid #ccc; font-size: 1em; width: 100%; box-sizing: border-box; }
         .inline-input { width: 120px; display: inline-block; text-align: right; }
         button.action-btn { width: 100%; padding: 12px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; background: #3498db; color: white; margin-top: 10px; transition: 0.2s; }
         button.action-btn:disabled { background: #95a5a6; }
@@ -186,6 +186,18 @@
             <div class="card">
                 <h2 style="margin-top:0;">⚖️ 体調と食事の記録</h2>
 
+                <details style="background: #e8f8f5; border-color: #a3e4d7;">
+                    <summary style="color: #16a085;">⚙️ ルート検索設定 (APIキー)</summary>
+                    <div style="font-size: 0.8em; color: #555; margin-bottom: 5px;">
+                        OpenRouteServiceのAPIキーを入力してください。<br>
+                        ※キーはiPhone内部にのみ安全に保存されます。
+                    </div>
+                    <div style="display: flex; gap: 5px;">
+                        <input type="password" id="ors-api-key-input" placeholder="eyJvcmciOi..." style="flex: 1;">
+                        <button class="action-btn" style="width: auto; margin-top: 0; padding: 8px 15px; background: #16a085;" onclick="saveOrsApiKey()">保存</button>
+                    </div>
+                </details>
+
                 <details open>
                     <summary>👤 パーソナルデータ (自動計算)</summary>
                     <div class="profile-row"><span>本名:</span> <input type="text" id="realname-input" class="inline-input" oninput="calcAll()" placeholder="例: 山田 太郎"></div>
@@ -247,9 +259,6 @@
     </nav>
 
     <script>
-        // ★ 販売時は、購入者にOpenRouteServiceのAPIキーを取得させ、ここに貼り付けてもらいます。
-        const ORS_API_KEY = "YOUR_OPENROUTESERVICE_API_KEY_HERE";
-
         let steps = 0, stairs = 0, activeCal = 0;
         let myChart = null;
         window.currentGraphMode = 'weight';
@@ -262,6 +271,18 @@
         let currentLat = 35.6812; 
         let currentLng = 139.7671;
         let isTrackingMode = true; 
+
+        // ★ 新機能：ORS APIキーの保存機能
+        window.saveOrsApiKey = function() {
+            const key = document.getElementById('ors-api-key-input').value.trim();
+            if (key) {
+                localStorage.setItem('orsApiKey', key);
+                alert("ルート検索用のAPIキーを保存しました！\nこれでナビ機能が利用できます。");
+            } else {
+                localStorage.removeItem('orsApiKey');
+                alert("ルート検索用のAPIキーを削除しました。");
+            }
+        };
 
         window.centerMap = function() {
             if (window.map && currentLat && currentLng) {
@@ -293,6 +314,10 @@
         };
 
         window.onload = function() {
+            // ★ 保存されたORSキーがあれば復元する
+            const savedOrsKey = localStorage.getItem('orsApiKey');
+            if (savedOrsKey) document.getElementById('ors-api-key-input').value = savedOrsKey;
+
             window.switchMainTab = function(tabName) {
                 document.querySelectorAll('.main-tab-content').forEach(el => el.classList.remove('active'));
                 document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
@@ -529,6 +554,13 @@
                 });
 
                 window.generateGoalRoute = async function() {
+                    // ★ 検索前にORS APIキーが設定されているかチェック
+                    const ORS_KEY = localStorage.getItem('orsApiKey');
+                    if (!ORS_KEY || ORS_KEY.trim() === "") {
+                        alert("【APIキーが未設定です】\n「体調・食事」タブの「⚙️ ルート検索設定」から、取得したORS APIキーを登録してください。");
+                        return;
+                    }
+
                     const btn1 = document.getElementById('route-btn');
                     const btn2 = document.getElementById('fs-route-btn');
                     const type = document.getElementById('goal-type').value;
@@ -564,7 +596,7 @@
                                 headers: {
                                     'Accept': 'application/json, application/geo+json, application/gpx+xml, img/png; charset=utf-8',
                                     'Content-Type': 'application/json',
-                                    'Authorization': ORS_API_KEY
+                                    'Authorization': ORS_KEY.trim()
                                 },
                                 body: JSON.stringify({ coordinates: reqCoords })
                             });
@@ -572,6 +604,7 @@
                             if (!response.ok) {
                                 const errData = await response.json();
                                 if (response.status === 429) throw new Error("通信制限(429): 1分間待ってから再度お試しください。");
+                                if (response.status === 401 || response.status === 403) throw new Error("APIキーが無効、または間違っています。");
                                 throw new Error(`サーバー拒否: ${errData.error?.message || response.status}`);
                             }
 
@@ -591,11 +624,7 @@
                                 alert(`目的地へのルート（約${actualDistKm}km / 徒歩約${actualMins}分）を作成しました！`);
                             }
                         } catch(err) {
-                            if (ORS_API_KEY === "YOUR_OPENROUTESERVICE_API_KEY_HERE") {
-                                alert("【APIキーが未設定です】\nプログラム内のORS_API_KEYにご自身のキーを設定してください。");
-                            } else {
-                                alert("【エラー発生】\n" + err.message);
-                            }
+                            alert("【エラー発生】\n" + err.message);
                         } finally {
                             btn1.innerText = "目的地までのルートを検索"; btn1.disabled = false;
                             if(btn2) { btn2.innerText = "🔍 ルートを再検索"; btn2.disabled = false; }
@@ -621,7 +650,7 @@
                                 headers: {
                                     'Accept': 'application/json, application/geo+json, application/gpx+xml, img/png; charset=utf-8',
                                     'Content-Type': 'application/json',
-                                    'Authorization': ORS_API_KEY
+                                    'Authorization': ORS_KEY.trim()
                                 },
                                 body: JSON.stringify({
                                     coordinates: [[currentLng, currentLat]],
@@ -640,6 +669,9 @@
                                 lastErrorMsg = errData.error?.message || response.status;
                                 if (response.status === 429) {
                                     throw new Error("通信制限(429): 1分間待ってから再度お試しください。");
+                                }
+                                if (response.status === 401 || response.status === 403) {
+                                    throw new Error("APIキーが無効、または間違っています。");
                                 }
                             }
                             await new Promise(resolve => setTimeout(resolve, 400));
@@ -660,11 +692,7 @@
                         alert(`散歩道に沿った約${actualDistKm}km (徒歩約${actualMins}分) の周回ルートを作成しました！`);
 
                     } catch(err) {
-                        if (ORS_API_KEY === "YOUR_OPENROUTESERVICE_API_KEY_HERE") {
-                            alert("【APIキーが未設定です】\nプログラム内のORS_API_KEYにご自身のキーを設定してください。");
-                        } else {
-                            alert("【エラー発生】\n" + err.message);
-                        }
+                        alert("【エラー発生】\n" + err.message);
                     } finally {
                         btn1.innerText = "おすすめルートを検索"; btn1.disabled = false;
                         if(btn2) { btn2.innerText = "🔍 ルートを再検索"; btn2.disabled = false; }
