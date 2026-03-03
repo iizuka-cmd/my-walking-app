@@ -73,7 +73,7 @@
         .status-on { background: #d4edda; color: #155724; } .status-off { background: #f8d7da; color: #721c24; }
 
         .concierge-area { display: flex; gap: 15px; margin-bottom: 15px; align-items: flex-start; }
-        .avatar-img { width: 70px; height: 95px; border-radius: 15px; object-fit: cover; object-position: top center; border: 3px solid #27ae60; box-shadow: 0 2px 8px rgba(0,0,0,0.15); background-color: #fff; flex-shrink: 0; }
+        .avatar-img { width: 70px; height: 95px; border-radius: 15px; object-fit: cover; object-position: top center; border: 3px solid #27ae60; box-shadow: 0 2px 8px rgba(0,0,0,0.15); background-color: #fff; flex-shrink: 0; transition: 0.3s; }
         .bubble { position: relative; background: #fff; border-radius: 15px; padding: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); flex: 1; font-size: 0.9em; line-height: 1.4; border: 1px solid #e0e0e0; }
         .bubble::before { content: ''; position: absolute; top: 30px; left: -10px; border-width: 10px 10px 10px 0; border-style: solid; border-color: transparent #fff transparent transparent; z-index: 2; }
         .bubble::after { content: ''; position: absolute; top: 29px; left: -12px; border-width: 11px 11px 11px 0; border-style: solid; border-color: transparent #e0e0e0 transparent transparent; z-index: 1; }
@@ -132,15 +132,17 @@
 
     <div class="container">
         <div class="concierge-area">
-            <img src="avatar.png" alt="アバター" class="avatar-img" onerror="this.src='https://placehold.co/75x95/e0e0e0/ffffff?text=AI'">
+            <img src="avatar.png" alt="アバター" class="avatar-img" id="avatar-image" onerror="this.src='https://placehold.co/75x95/e0e0e0/ffffff?text=AI'">
             <div class="bubble">
                 <div id="ai-message">おはようございます！今日の調子はいかがですか？下のボタンから私に話しかけてくださいね！</div>
                 <div class="concierge-controls">
-                    <select id="ai-persona" onchange="localStorage.setItem('aiPersona', this.value)">
-                        <option value="maid">🌸 優しいメイド</option>
-                        <option value="tsundere">💢 ツンデレ幼馴染</option>
-                        <option value="coach">🔥 熱血コーチ</option>
-                        <option value="secretary">👓 クールな秘書</option>
+                    <select id="ai-persona" onchange="changePersona()">
+                        <option value="maid">🌸 メイド (優しい)</option>
+                        <option value="student">🎒 学生 (おっとり甘え)</option>
+                        <option value="jiraikei">💔 地雷系 (ツンデレ心配性)</option>
+                        <option value="secretary">👓 秘書 (知的・クール)</option>
+                        <option value="ol">☕️ OL (幼馴染・母性)</option>
+                        <option value="trainer">👟 トレーナー (元気・熱血)</option>
                     </select>
                     <button onclick="getAiAdvice()" id="ai-btn">💬 アドバイスを聞く</button>
                 </div>
@@ -149,7 +151,7 @@
 
         <div id="tab-walk" class="main-tab-content active">
             <div class="card">
-                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v10.19</span></h1>
+                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v10.20</span></h1>
                 <div id="wake-lock-status" class="status-off">スリープ防止：OFF (画面タップ)</div>
                 
                 <div style="background: #f0f4f8; padding: 10px; border-radius: 10px; margin-bottom: 15px;">
@@ -347,6 +349,20 @@
             }
         };
 
+        // ★ 新機能：キャラクター切り替えと同時に画像を連動させる関数
+        window.changePersona = function() {
+            const val = document.getElementById('ai-persona').value;
+            localStorage.setItem('aiPersona', val);
+            
+            const imgElem = document.getElementById('avatar-image');
+            if(val === 'maid') imgElem.src = 'avatar.png';
+            if(val === 'student') imgElem.src = 'avatar1.png';
+            if(val === 'jiraikei') imgElem.src = 'avatar2.png';
+            if(val === 'secretary') imgElem.src = 'avatar3.png';
+            if(val === 'ol') imgElem.src = 'avatar4.png';
+            if(val === 'trainer') imgElem.src = 'avatar5.png';
+        };
+
         window.getAiAdvice = async function() {
             const msgBox = document.getElementById('ai-message');
             const btn = document.getElementById('ai-btn');
@@ -367,11 +383,22 @@
             const balText = document.getElementById('balance-result').innerText;
             const targetSteps = document.getElementById('target-steps-input').value || 8000;
             const persona = document.getElementById('ai-persona').value;
+            
+            // ★ 全6キャラ分の女性特化プロンプト（性格・口調）
             let personaPrompt = "";
-            if(persona === 'maid') personaPrompt = `あなたは優しくて丁寧なメイドです。ユーザーを「${userName}」と呼び、献身的に褒めて癒やし、健康を気遣う口調で話してください。語尾は「〜ですね！」「〜ですよ♪」など柔らかく。`;
-            if(persona === 'tsundere') personaPrompt = `あなたは少しツンデレな幼馴染です。ユーザーを「${userName}」と呼び、素直になれず少し強気で厳しい言葉をかけますが、本当は誰よりも健康を心配しているのが伝わる口調で話してください。語尾は「〜しなさいよね！」「〜なんだから！」など。`;
-            if(persona === 'coach') personaPrompt = `あなたは熱血でポジティブなスポーツコーチです。ユーザーを「${userName}」と呼び、モチベーションが爆発するような熱い言葉とテンションで応援してください。語尾は「〜だぞ！」「〜していこうぜ！」など力強く。`;
-            if(persona === 'secretary') personaPrompt = `あなたはクールで知的、非常に優秀な秘書です。ユーザーを「${userName}」と呼び、冷静かつ論理的にデータを分析し、無駄のない的確なアドバイスを淡々と伝えてください。語尾は「〜です。」「〜を推奨します。」など知的に。`;
+            if(persona === 'maid') {
+                personaPrompt = `あなたは優しくて丁寧なメイドです。ユーザーを「${userName}」と呼び、献身的に褒めて癒やし、健康を気遣う口調で話してください。語尾は「〜ですね！」「〜ですよ♪」など柔らかく。`;
+            } else if(persona === 'student') {
+                personaPrompt = `あなたはおっとりしていて、少し甘えん坊な女子学生です。ユーザーを「${userName}」と呼び、「〜だねぇ」「〜してほしいな」と慕うように、のんびりとした口調で健康を気遣ってください。`;
+            } else if(persona === 'jiraikei') {
+                personaPrompt = `あなたは少しツンデレで地雷系の女の子です。ユーザーを「${userName}」と呼び、素直になれず少し強気ですが、実は誰よりもユーザーの健康を異常なほど心配しているのが伝わる口調で話してください。語尾は「〜しなさいよね！」「〜なんだから！」など。`;
+            } else if(persona === 'secretary') {
+                personaPrompt = `あなたは冷静沈着で優秀な女性秘書です。ユーザーを「${userName}」と呼び、データを論理的に分析し、無駄のない的確なアドバイスを、丁寧かつ少し事務的な敬語で伝えてください。語尾は「〜ですね。」「〜を推奨いたします。」など知的に。`;
+            } else if(persona === 'ol') {
+                personaPrompt = `あなたは母性本能が強く、包容力のある女性の幼馴染（OL）です。ユーザーを「${userName}」と呼び、まるで母親や優しいお姉さんのように全てを包み込んで褒め、優しく健康をサポートする口調で話してください。「えらいえらい！」「〜して偉いねぇ」など。`;
+            } else if(persona === 'trainer') {
+                personaPrompt = `あなたは明るく元気で、少し体育会系な女性のフィットネスコーチです。ユーザーを「${userName}」と呼び、モチベーションが爆発するように、笑顔が思い浮かぶようなポジティブな言葉で応援してください。語尾は「〜していきましょう！」「さすがです！」「ファイトです！」などハキハキと。`;
+            }
 
             const prompt = `${personaPrompt}\n以下のユーザーの今日の健康データを分析し、短く（2〜3文程度で）自然な日本語の話し言葉でアドバイスやリアクションを返してください。マークダウン（**など）や箇条書きは絶対に使わず、そのまま吹き出しに入る文章だけにしてください。\n【今日のデータ】\n・目標歩数: ${targetSteps} 歩\n・現在の歩数: ${steps} 歩\n・運動による消費カロリー: ${activeCal} kcal\n・摂取カロリー: ${inCalText} kcal\n・基礎代謝: ${bmrText} kcal\n・現在のカロリー収支: ${balText}`;
 
@@ -425,7 +452,6 @@
 }
 見つからない項目は0にしてください。`;
 
-                // ★ ここを gemini-2.5-flash-lite に変更しました！
                 const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -499,10 +525,15 @@
         };
 
         window.onload = function() {
+            // ★ 初期ロード時にキャラクター設定を読み込み、画像も更新する
+            const savedPersona = localStorage.getItem('aiPersona');
+            if (savedPersona) {
+                document.getElementById('ai-persona').value = savedPersona;
+                window.changePersona();
+            }
+
             const savedKey = localStorage.getItem('geminiApiKey');
             if (savedKey) document.getElementById('api-key-input').value = savedKey;
-            const savedPersona = localStorage.getItem('aiPersona');
-            if (savedPersona) document.getElementById('ai-persona').value = savedPersona;
 
             window.switchMainTab = function(tabName) {
                 document.querySelectorAll('.main-tab-content').forEach(el => el.classList.remove('active'));
@@ -565,7 +596,7 @@
                     const nick = document.getElementById('nickname-input').value;
                     let displayName = "あなた";
                     if (nick) displayName = nick; else if (real) displayName = real;
-                    document.getElementById('app-title').innerHTML = `${displayName}の健康ログ <span class="version-badge">v10.19</span>`;
+                    document.getElementById('app-title').innerHTML = `${displayName}の健康ログ <span class="version-badge">v10.20</span>`;
 
                     const w = parseFloat(document.getElementById('weight-input').value) || 0;
                     const h = parseFloat(document.getElementById('height-input').value) || 0;
