@@ -20,7 +20,7 @@
         .container { max-width: 600px; margin: auto; padding: 15px; }
         .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 15px; }
         h1 { font-size: 1.2em; margin-top: 0; margin-bottom: 15px; border-bottom: 2px solid #27ae60; padding-bottom: 5px; display: flex; justify-content: space-between; align-items: center; }
-        .version-badge { background: #3498db; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.6em; font-weight: bold; }
+        .version-badge { background: #e74c3c; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.6em; font-weight: bold; }
         
         .main-tab-content { display: none; animation: fadeIn 0.3s ease; }
         .main-tab-content.active { display: block; }
@@ -72,7 +72,19 @@
         #wake-lock-status { font-size: 0.8em; text-align: center; padding: 5px; border-radius: 20px; margin-bottom: 10px; }
         .status-on { background: #d4edda; color: #155724; } .status-off { background: #f8d7da; color: #721c24; }
 
-        /* 全画面表示時専用の統合パネル */
+        .concierge-area { display: flex; gap: 15px; margin-bottom: 15px; align-items: flex-start; }
+        .avatar-img { width: 70px; height: 95px; border-radius: 15px; object-fit: cover; object-position: top center; border: 3px solid #27ae60; box-shadow: 0 2px 8px rgba(0,0,0,0.15); background-color: #fff; flex-shrink: 0; }
+        .bubble { position: relative; background: #fff; border-radius: 15px; padding: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); flex: 1; font-size: 0.9em; line-height: 1.4; border: 1px solid #e0e0e0; }
+        .bubble::before { content: ''; position: absolute; top: 30px; left: -10px; border-width: 10px 10px 10px 0; border-style: solid; border-color: transparent #fff transparent transparent; z-index: 2; }
+        .bubble::after { content: ''; position: absolute; top: 29px; left: -12px; border-width: 11px 11px 11px 0; border-style: solid; border-color: transparent #e0e0e0 transparent transparent; z-index: 1; }
+        .concierge-controls { display: flex; gap: 5px; margin-top: 10px; border-top: 1px dashed #eee; padding-top: 10px; }
+        .concierge-controls select { flex: 1; padding: 6px; font-size: 0.8em; border-radius: 5px; }
+        .concierge-controls button { flex: 1; padding: 6px; background: #9b59b6; color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 0.85em; transition: 0.2s; }
+        .concierge-controls button:disabled { background: #bdc3c7; }
+        .ai-typing { animation: blink 1.5s infinite; color: #888; font-weight: bold; }
+        @keyframes blink { 0% {opacity: 0.2;} 50% {opacity: 1;} 100% {opacity: 0.2;} }
+
+        /* 全画面表示時専用の「すべてまとめた統合パネル」 */
         #fullscreen-controls { display: none; }
         #map-container.is-fullscreen #fullscreen-controls {
             display: flex;
@@ -113,18 +125,36 @@
         }
         #fullscreen-controls .fs-btn-search { width: 100%; padding: 12px; font-size: 1em; background: #3498db; margin-top: 2px; }
         #fullscreen-controls button:disabled { background: #95a5a6 !important; }
+        
+        .ai-scan-btn { background: #8e44ad; font-size: 0.85em; padding: 8px; margin-top: 5px; width: 100%; text-align: center; }
     </style>
 </head>
 <body>
 
     <div class="container">
+        <div class="concierge-area">
+            <img src="avatar.png" alt="アバター" class="avatar-img" onerror="this.src='https://placehold.co/75x95/e0e0e0/ffffff?text=AI'">
+            <div class="bubble">
+                <div id="ai-message">おはようございます！今日の調子はいかがですか？下のボタンから私に話しかけてくださいね！</div>
+                <div class="concierge-controls">
+                    <select id="ai-persona" onchange="localStorage.setItem('aiPersona', this.value)">
+                        <option value="maid">🌸 優しいメイド</option>
+                        <option value="tsundere">💢 ツンデレ幼馴染</option>
+                        <option value="coach">🔥 熱血コーチ</option>
+                        <option value="secretary">👓 クールな秘書</option>
+                    </select>
+                    <button onclick="getAiAdvice()" id="ai-btn">💬 アドバイスを聞く</button>
+                </div>
+            </div>
+        </div>
+
         <div id="tab-walk" class="main-tab-content active">
             <div class="card">
-                <h1 id="app-title">健康ログアプリ <span class="version-badge">Lite版</span></h1>
+                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v10.17</span></h1>
                 <div id="wake-lock-status" class="status-off">スリープ防止：OFF (画面タップ)</div>
                 
                 <div style="background: #f0f4f8; padding: 10px; border-radius: 10px; margin-bottom: 15px;">
-                    <strong>目標ルート作成 (ナビ):</strong><br>
+                    <strong>目標ルート作成 (AIナビ):</strong><br>
                     <div class="route-mode-box">
                         <label>
                             <input type="radio" name="route-mode" value="loop" checked onchange="toggleRouteMode()">
@@ -187,14 +217,14 @@
                 <h2 style="margin-top:0;">⚖️ 体調と食事の記録</h2>
 
                 <details style="background: #e8f8f5; border-color: #a3e4d7;">
-                    <summary style="color: #16a085;">⚙️ ルート検索設定 (APIキー)</summary>
+                    <summary style="color: #16a085;">⚙️ AIコンシェルジュ設定 (APIキー)</summary>
                     <div style="font-size: 0.8em; color: #555; margin-bottom: 5px;">
-                        OpenRouteServiceのAPIキーを入力してください。<br>
-                        ※キーはiPhone内部にのみ安全に保存されます。
+                        GeminiのAPIキーを入力してください。<br>
+                        ※GitHubには公開されず、あなたのiPhone内部にのみ安全に保存されます。
                     </div>
                     <div style="display: flex; gap: 5px;">
-                        <input type="password" id="ors-api-key-input" placeholder="eyJvcmciOi..." style="flex: 1;">
-                        <button class="action-btn" style="width: auto; margin-top: 0; padding: 8px 15px; background: #16a085;" onclick="saveOrsApiKey()">保存</button>
+                        <input type="password" id="api-key-input" placeholder="AIzaSy..." style="flex: 1;">
+                        <button class="action-btn" style="width: auto; margin-top: 0; padding: 8px 15px; background: #16a085;" onclick="saveApiKey()">保存</button>
                     </div>
                 </details>
 
@@ -213,11 +243,43 @@
                     </div>
                 </details>
 
-                <h3 style="font-size: 1em; margin-bottom: 5px; border-bottom: 1px solid #ccc;">🍽️ 食事記録 (手動入力)</h3>
-                <details><summary>🌅 朝食</summary><div class="meal-grid"><div>Kcal</div><div>P(g)</div><div>F(g)</div><div>C(g)</div><div>塩(g)</div><input type="number" id="bf-cal" oninput="calcAll()"><input type="number" id="bf-p" oninput="calcAll()"><input type="number" id="bf-f" oninput="calcAll()"><input type="number" id="bf-c" oninput="calcAll()"><input type="number" id="bf-s" oninput="calcAll()"></div></details>
-                <details><summary>☀️ 昼食</summary><div class="meal-grid"><div>Kcal</div><div>P(g)</div><div>F(g)</div><div>C(g)</div><div>塩(g)</div><input type="number" id="lu-cal" oninput="calcAll()"><input type="number" id="lu-p" oninput="calcAll()"><input type="number" id="lu-f" oninput="calcAll()"><input type="number" id="lu-c" oninput="calcAll()"><input type="number" id="lu-s" oninput="calcAll()"></div></details>
-                <details><summary>🌙 夕食</summary><div class="meal-grid"><div>Kcal</div><div>P(g)</div><div>F(g)</div><div>C(g)</div><div>塩(g)</div><input type="number" id="dn-cal" oninput="calcAll()"><input type="number" id="dn-p" oninput="calcAll()"><input type="number" id="dn-f" oninput="calcAll()"><input type="number" id="dn-c" oninput="calcAll()"><input type="number" id="dn-s" oninput="calcAll()"></div></details>
-                <details><summary>☕️ 間食</summary><div class="meal-grid"><div>Kcal</div><div>P(g)</div><div>F(g)</div><div>C(g)</div><div>塩(g)</div><input type="number" id="sn-cal" oninput="calcAll()"><input type="number" id="sn-p" oninput="calcAll()"><input type="number" id="sn-f" oninput="calcAll()"><input type="number" id="sn-c" oninput="calcAll()"><input type="number" id="sn-s" oninput="calcAll()"></div></details>
+                <h3 style="font-size: 1em; margin-bottom: 5px; border-bottom: 1px solid #ccc;">🍽️ 食事記録 (1日の合計または各食)</h3>
+                
+                <details>
+                    <summary>🌅 朝食</summary>
+                    <div>
+                        <input type="file" id="bf-file" accept="image/*" capture="environment" style="display:none;" onchange="handleImageUpload('bf', this)">
+                        <button class="action-btn ai-scan-btn" onclick="document.getElementById('bf-file').click()">📷 成分表をAIスキャン (自動加算)</button>
+                    </div>
+                    <div class="meal-grid"><div>Kcal</div><div>P(g)</div><div>F(g)</div><div>C(g)</div><div>塩(g)</div><input type="number" id="bf-cal" oninput="calcAll()"><input type="number" id="bf-p" oninput="calcAll()"><input type="number" id="bf-f" oninput="calcAll()"><input type="number" id="bf-c" oninput="calcAll()"><input type="number" id="bf-s" oninput="calcAll()"></div>
+                </details>
+
+                <details>
+                    <summary>☀️ 昼食</summary>
+                    <div>
+                        <input type="file" id="lu-file" accept="image/*" capture="environment" style="display:none;" onchange="handleImageUpload('lu', this)">
+                        <button class="action-btn ai-scan-btn" onclick="document.getElementById('lu-file').click()">📷 成分表をAIスキャン (自動加算)</button>
+                    </div>
+                    <div class="meal-grid"><div>Kcal</div><div>P(g)</div><div>F(g)</div><div>C(g)</div><div>塩(g)</div><input type="number" id="lu-cal" oninput="calcAll()"><input type="number" id="lu-p" oninput="calcAll()"><input type="number" id="lu-f" oninput="calcAll()"><input type="number" id="lu-c" oninput="calcAll()"><input type="number" id="lu-s" oninput="calcAll()"></div>
+                </details>
+
+                <details>
+                    <summary>🌙 夕食</summary>
+                    <div>
+                        <input type="file" id="dn-file" accept="image/*" capture="environment" style="display:none;" onchange="handleImageUpload('dn', this)">
+                        <button class="action-btn ai-scan-btn" onclick="document.getElementById('dn-file').click()">📷 成分表をAIスキャン (自動加算)</button>
+                    </div>
+                    <div class="meal-grid"><div>Kcal</div><div>P(g)</div><div>F(g)</div><div>C(g)</div><div>塩(g)</div><input type="number" id="dn-cal" oninput="calcAll()"><input type="number" id="dn-p" oninput="calcAll()"><input type="number" id="dn-f" oninput="calcAll()"><input type="number" id="dn-c" oninput="calcAll()"><input type="number" id="dn-s" oninput="calcAll()"></div>
+                </details>
+
+                <details>
+                    <summary>☕️ 間食</summary>
+                    <div>
+                        <input type="file" id="sn-file" accept="image/*" capture="environment" style="display:none;" onchange="handleImageUpload('sn', this)">
+                        <button class="action-btn ai-scan-btn" onclick="document.getElementById('sn-file').click()">📷 成分表をAIスキャン (自動加算)</button>
+                    </div>
+                    <div class="meal-grid"><div>Kcal</div><div>P(g)</div><div>F(g)</div><div>C(g)</div><div>塩(g)</div><input type="number" id="sn-cal" oninput="calcAll()"><input type="number" id="sn-p" oninput="calcAll()"><input type="number" id="sn-f" oninput="calcAll()"><input type="number" id="sn-c" oninput="calcAll()"><input type="number" id="sn-s" oninput="calcAll()"></div>
+                </details>
 
                 <div style="background: #fdfefe; padding: 10px; border: 1px solid #bdc3c7; border-radius: 8px; margin-top: 10px; font-size: 0.9em;">
                     <strong>📋 本日の摂取合計</strong><br>
@@ -259,6 +321,8 @@
     </nav>
 
     <script>
+        const ORS_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjBiNWMzYjRiODBlNTQxYjY4NmIwMTQ2MTIzNmYwNmFhIiwiaCI6Im11cm11cjY0In0=";
+
         let steps = 0, stairs = 0, activeCal = 0;
         let myChart = null;
         window.currentGraphMode = 'weight';
@@ -270,17 +334,142 @@
 
         let currentLat = 35.6812; 
         let currentLng = 139.7671;
+
         let isTrackingMode = true; 
 
-        // ★ 新機能：ORS APIキーの保存機能
-        window.saveOrsApiKey = function() {
-            const key = document.getElementById('ors-api-key-input').value.trim();
+        window.saveApiKey = function() {
+            const key = document.getElementById('api-key-input').value.trim();
             if (key) {
-                localStorage.setItem('orsApiKey', key);
-                alert("ルート検索用のAPIキーを保存しました！\nこれでナビ機能が利用できます。");
+                localStorage.setItem('geminiApiKey', key);
+                alert("APIキーを保存しました！");
             } else {
-                localStorage.removeItem('orsApiKey');
-                alert("ルート検索用のAPIキーを削除しました。");
+                localStorage.removeItem('geminiApiKey');
+                alert("APIキーを削除しました。");
+            }
+        };
+
+        window.getAiAdvice = async function() {
+            const msgBox = document.getElementById('ai-message');
+            const btn = document.getElementById('ai-btn');
+            let GEMINI_API_KEY = localStorage.getItem('geminiApiKey');
+
+            if (!GEMINI_API_KEY) {
+                msgBox.innerHTML = "<b>【お願い】</b><br>「体調・食事」タブにある「⚙️ AI設定」から、Gemini APIキーを登録してくださいね！";
+                return;
+            }
+
+            GEMINI_API_KEY = GEMINI_API_KEY.trim();
+            btn.disabled = true;
+            msgBox.innerHTML = '<span class="ai-typing">データを分析して考えています...💭</span>';
+
+            const userName = document.getElementById('nickname-input').value || document.getElementById('realname-input').value || "ご主人様";
+            const bmrText = document.getElementById('bmr-display').innerText;
+            const inCalText = document.getElementById('total-kcal').innerText;
+            const balText = document.getElementById('balance-result').innerText;
+            const targetSteps = document.getElementById('target-steps-input').value || 8000;
+            const persona = document.getElementById('ai-persona').value;
+            let personaPrompt = "";
+            if(persona === 'maid') personaPrompt = `あなたは優しくて丁寧なメイドです。ユーザーを「${userName}」と呼び、献身的に褒めて癒やし、健康を気遣う口調で話してください。語尾は「〜ですね！」「〜ですよ♪」など柔らかく。`;
+            if(persona === 'tsundere') personaPrompt = `あなたは少しツンデレな幼馴染です。ユーザーを「${userName}」と呼び、素直になれず少し強気で厳しい言葉をかけますが、本当は誰よりも健康を心配しているのが伝わる口調で話してください。語尾は「〜しなさいよね！」「〜なんだから！」など。`;
+            if(persona === 'coach') personaPrompt = `あなたは熱血でポジティブなスポーツコーチです。ユーザーを「${userName}」と呼び、モチベーションが爆発するような熱い言葉とテンションで応援してください。語尾は「〜だぞ！」「〜していこうぜ！」など力強く。`;
+            if(persona === 'secretary') personaPrompt = `あなたはクールで知的、非常に優秀な秘書です。ユーザーを「${userName}」と呼び、冷静かつ論理的にデータを分析し、無駄のない的確なアドバイスを淡々と伝えてください。語尾は「〜です。」「〜を推奨します。」など知的に。`;
+
+            const prompt = `${personaPrompt}\n以下のユーザーの今日の健康データを分析し、短く（2〜3文程度で）自然な日本語の話し言葉でアドバイスやリアクションを返してください。マークダウン（**など）や箇条書きは絶対に使わず、そのまま吹き出しに入る文章だけにしてください。\n【今日のデータ】\n・目標歩数: ${targetSteps} 歩\n・現在の歩数: ${steps} 歩\n・運動による消費カロリー: ${activeCal} kcal\n・摂取カロリー: ${inCalText} kcal\n・基礎代謝: ${bmrText} kcal\n・現在のカロリー収支: ${balText}`;
+
+            try {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                });
+                if (!response.ok) throw new Error("通信エラー");
+                const data = await response.json();
+                msgBox.innerText = data.candidates[0].content.parts[0].text.replace(/\*/g, ''); 
+            } catch (err) {
+                msgBox.innerText = "ごめんなさい、うまく考えがまとまりませんでした。通信状況を確認してください！";
+            } finally {
+                btn.disabled = false;
+            }
+        };
+
+        // ★ 新機能：AIカメラ成分スキャン機能
+        window.handleImageUpload = async function(mealType, inputElem) {
+            const file = inputElem.files[0];
+            if (!file) return;
+
+            let GEMINI_API_KEY = localStorage.getItem('geminiApiKey');
+            if (!GEMINI_API_KEY) {
+                alert("「⚙️ AIコンシェルジュ設定」からAPIキーを登録してください！");
+                inputElem.value = "";
+                return;
+            }
+
+            const btn = inputElem.nextElementSibling;
+            const originalText = btn.innerText;
+            btn.innerText = "⏳ AIが画像を解析中...";
+            btn.disabled = true;
+
+            try {
+                const base64Data = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result.split(',')[1]);
+                    reader.onerror = error => reject(error);
+                    reader.readAsDataURL(file);
+                });
+
+                const prompt = `画像から栄養成分表示を読み取り、以下のJSON形式で数値を抽出してください。単位は不要で数値のみ（小数点可）を返してください。
+{
+  "kcal": カロリーの数値,
+  "p": タンパク質の数値,
+  "f": 脂質の数値,
+  "c": 炭水化物の数値,
+  "s": 食塩相当量の数値
+}
+見つからない項目は0にしてください。`;
+
+                // ※画像認識にはフラッシュモデル(gemini-2.5-flash)を使用
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{
+                            parts: [
+                                { text: prompt },
+                                { inlineData: { mimeType: file.type, data: base64Data } }
+                            ]
+                        }],
+                        generationConfig: { responseMimeType: "application/json" }
+                    })
+                });
+
+                if (!response.ok) throw new Error("通信エラー");
+
+                const data = await response.json();
+                const result = JSON.parse(data.candidates[0].content.parts[0].text);
+
+                // 現在の入力値を取得（空なら0）
+                const currentKcal = parseFloat(document.getElementById(mealType + '-cal').value) || 0;
+                const currentP = parseFloat(document.getElementById(mealType + '-p').value) || 0;
+                const currentF = parseFloat(document.getElementById(mealType + '-f').value) || 0;
+                const currentC = parseFloat(document.getElementById(mealType + '-c').value) || 0;
+                const currentS = parseFloat(document.getElementById(mealType + '-s').value) || 0;
+
+                // 取得した数値を加算して入力欄に戻す
+                document.getElementById(mealType + '-cal').value = currentKcal + (parseFloat(result.kcal) || 0);
+                document.getElementById(mealType + '-p').value = (currentP + (parseFloat(result.p) || 0)).toFixed(1);
+                document.getElementById(mealType + '-f').value = (currentF + (parseFloat(result.f) || 0)).toFixed(1);
+                document.getElementById(mealType + '-c').value = (currentC + (parseFloat(result.c) || 0)).toFixed(1);
+                document.getElementById(mealType + '-s').value = (currentS + (parseFloat(result.s) || 0)).toFixed(1);
+
+                calcAll();
+                alert(`成分表を読み取り、現在の数値に加算しました！\n\n【追加分】\nカロリー: ${result.kcal || 0} kcal\nタンパク質: ${result.p || 0} g\n脂質: ${result.f || 0} g\n炭水化物: ${result.c || 0} g\n食塩: ${result.s || 0} g`);
+
+            } catch (err) {
+                alert("画像の解析に失敗しました。成分表がはっきり写っているか確認してください。\n詳細: " + err.message);
+            } finally {
+                btn.innerText = originalText;
+                btn.disabled = false;
+                inputElem.value = ""; 
             }
         };
 
@@ -314,9 +503,10 @@
         };
 
         window.onload = function() {
-            // ★ 保存されたORSキーがあれば復元する
-            const savedOrsKey = localStorage.getItem('orsApiKey');
-            if (savedOrsKey) document.getElementById('ors-api-key-input').value = savedOrsKey;
+            const savedKey = localStorage.getItem('geminiApiKey');
+            if (savedKey) document.getElementById('api-key-input').value = savedKey;
+            const savedPersona = localStorage.getItem('aiPersona');
+            if (savedPersona) document.getElementById('ai-persona').value = savedPersona;
 
             window.switchMainTab = function(tabName) {
                 document.querySelectorAll('.main-tab-content').forEach(el => el.classList.remove('active'));
@@ -379,7 +569,8 @@
                     const nick = document.getElementById('nickname-input').value;
                     let displayName = "あなた";
                     if (nick) displayName = nick; else if (real) displayName = real;
-                    
+                    document.getElementById('app-title').innerHTML = `${displayName}の健康ログ <span class="version-badge">v10.17</span>`;
+
                     const w = parseFloat(document.getElementById('weight-input').value) || 0;
                     const h = parseFloat(document.getElementById('height-input').value) || 0;
                     const g = document.getElementById('gender-input').value;
@@ -554,13 +745,6 @@
                 });
 
                 window.generateGoalRoute = async function() {
-                    // ★ 検索前にORS APIキーが設定されているかチェック
-                    const ORS_KEY = localStorage.getItem('orsApiKey');
-                    if (!ORS_KEY || ORS_KEY.trim() === "") {
-                        alert("【APIキーが未設定です】\n「体調・食事」タブの「⚙️ ルート検索設定」から、取得したORS APIキーを登録してください。");
-                        return;
-                    }
-
                     const btn1 = document.getElementById('route-btn');
                     const btn2 = document.getElementById('fs-route-btn');
                     const type = document.getElementById('goal-type').value;
@@ -596,7 +780,7 @@
                                 headers: {
                                     'Accept': 'application/json, application/geo+json, application/gpx+xml, img/png; charset=utf-8',
                                     'Content-Type': 'application/json',
-                                    'Authorization': ORS_KEY.trim()
+                                    'Authorization': ORS_API_KEY
                                 },
                                 body: JSON.stringify({ coordinates: reqCoords })
                             });
@@ -604,7 +788,6 @@
                             if (!response.ok) {
                                 const errData = await response.json();
                                 if (response.status === 429) throw new Error("通信制限(429): 1分間待ってから再度お試しください。");
-                                if (response.status === 401 || response.status === 403) throw new Error("APIキーが無効、または間違っています。");
                                 throw new Error(`サーバー拒否: ${errData.error?.message || response.status}`);
                             }
 
@@ -650,7 +833,7 @@
                                 headers: {
                                     'Accept': 'application/json, application/geo+json, application/gpx+xml, img/png; charset=utf-8',
                                     'Content-Type': 'application/json',
-                                    'Authorization': ORS_KEY.trim()
+                                    'Authorization': ORS_API_KEY
                                 },
                                 body: JSON.stringify({
                                     coordinates: [[currentLng, currentLat]],
@@ -669,9 +852,6 @@
                                 lastErrorMsg = errData.error?.message || response.status;
                                 if (response.status === 429) {
                                     throw new Error("通信制限(429): 1分間待ってから再度お試しください。");
-                                }
-                                if (response.status === 401 || response.status === 403) {
-                                    throw new Error("APIキーが無効、または間違っています。");
                                 }
                             }
                             await new Promise(resolve => setTimeout(resolve, 400));
