@@ -39,13 +39,10 @@
         #map-container { position: relative; margin-bottom: 15px; }
         #map { height: 300px; width: 100%; border-radius: 15px; border: 2px solid #ddd; z-index: 1; }
         
-        /* 通常画面の「拡大」ボタン */
         #normal-fullscreen-btn { position: absolute; top: 10px; right: 10px; z-index: 1000; padding: 8px 12px; background: white; border: 2px solid #ccc; border-radius: 8px; cursor: pointer; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
         
         #map-container.is-fullscreen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 10000; margin: 0; background: white; }
         #map-container.is-fullscreen #map { height: 100vh !important; border-radius: 0; border: none; }
-        
-        /* 全画面時は通常画面の拡大ボタンを隠す */
         #map-container.is-fullscreen #normal-fullscreen-btn { display: none; }
 
         input[type="number"], input[type="text"], input[type="date"], input[type="password"], select { padding: 8px; border-radius: 5px; border: 1px solid #ccc; font-size: 1em; width: 100%; box-sizing: border-box; }
@@ -87,14 +84,14 @@
         .ai-typing { animation: blink 1.5s infinite; color: #888; font-weight: bold; }
         @keyframes blink { 0% {opacity: 0.2;} 50% {opacity: 1;} 100% {opacity: 0.2;} }
 
-        /* ★ 全画面表示時専用の「すべてまとめた統合パネル」 */
+        /* 全画面表示時専用の「すべてまとめた統合パネル」 */
         #fullscreen-controls { display: none; }
         #map-container.is-fullscreen #fullscreen-controls {
             display: flex;
             flex-direction: column;
             gap: 6px;
             position: absolute;
-            top: calc(env(safe-area-inset-top, 40px) + 10px); /* 画面上部にピタッと配置 */
+            top: calc(env(safe-area-inset-top, 40px) + 10px); 
             left: 50%;
             transform: translateX(-50%);
             z-index: 10001;
@@ -108,7 +105,7 @@
         }
         #fullscreen-controls .fs-btn-row { 
             display: flex; 
-            gap: 4px; /* 隙間を極力詰める */
+            gap: 4px; 
             width: 100%; 
             align-items: stretch; 
         }
@@ -121,13 +118,15 @@
             border-radius: 6px; 
             color: white; 
             cursor: pointer;
-            white-space: nowrap; /* ★文字の折り返しを絶対に防ぐ */
+            white-space: nowrap; 
             display: flex;
             align-items: center;
             justify-content: center;
         }
         #fullscreen-controls .fs-btn-search { width: 100%; padding: 12px; font-size: 1em; background: #3498db; margin-top: 2px; }
         #fullscreen-controls button:disabled { background: #95a5a6 !important; }
+        
+        .ai-scan-btn { background: #8e44ad; font-size: 0.85em; padding: 8px; margin-top: 5px; width: 100%; text-align: center; }
     </style>
 </head>
 <body>
@@ -151,7 +150,7 @@
 
         <div id="tab-walk" class="main-tab-content active">
             <div class="card">
-                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v10.16</span></h1>
+                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v10.17</span></h1>
                 <div id="wake-lock-status" class="status-off">スリープ防止：OFF (画面タップ)</div>
                 
                 <div style="background: #f0f4f8; padding: 10px; border-radius: 10px; margin-bottom: 15px;">
@@ -245,10 +244,42 @@
                 </details>
 
                 <h3 style="font-size: 1em; margin-bottom: 5px; border-bottom: 1px solid #ccc;">🍽️ 食事記録 (1日の合計または各食)</h3>
-                <details><summary>🌅 朝食</summary><div class="meal-grid"><div>Kcal</div><div>P(g)</div><div>F(g)</div><div>C(g)</div><div>塩(g)</div><input type="number" id="bf-cal" oninput="calcAll()"><input type="number" id="bf-p" oninput="calcAll()"><input type="number" id="bf-f" oninput="calcAll()"><input type="number" id="bf-c" oninput="calcAll()"><input type="number" id="bf-s" oninput="calcAll()"></div></details>
-                <details><summary>☀️ 昼食</summary><div class="meal-grid"><div>Kcal</div><div>P(g)</div><div>F(g)</div><div>C(g)</div><div>塩(g)</div><input type="number" id="lu-cal" oninput="calcAll()"><input type="number" id="lu-p" oninput="calcAll()"><input type="number" id="lu-f" oninput="calcAll()"><input type="number" id="lu-c" oninput="calcAll()"><input type="number" id="lu-s" oninput="calcAll()"></div></details>
-                <details><summary>🌙 夕食</summary><div class="meal-grid"><div>Kcal</div><div>P(g)</div><div>F(g)</div><div>C(g)</div><div>塩(g)</div><input type="number" id="dn-cal" oninput="calcAll()"><input type="number" id="dn-p" oninput="calcAll()"><input type="number" id="dn-f" oninput="calcAll()"><input type="number" id="dn-c" oninput="calcAll()"><input type="number" id="dn-s" oninput="calcAll()"></div></details>
-                <details><summary>☕️ 間食</summary><div class="meal-grid"><div>Kcal</div><div>P(g)</div><div>F(g)</div><div>C(g)</div><div>塩(g)</div><input type="number" id="sn-cal" oninput="calcAll()"><input type="number" id="sn-p" oninput="calcAll()"><input type="number" id="sn-f" oninput="calcAll()"><input type="number" id="sn-c" oninput="calcAll()"><input type="number" id="sn-s" oninput="calcAll()"></div></details>
+                
+                <details>
+                    <summary>🌅 朝食</summary>
+                    <div>
+                        <input type="file" id="bf-file" accept="image/*" capture="environment" style="display:none;" onchange="handleImageUpload('bf', this)">
+                        <button class="action-btn ai-scan-btn" onclick="document.getElementById('bf-file').click()">📷 成分表をAIスキャン (自動加算)</button>
+                    </div>
+                    <div class="meal-grid"><div>Kcal</div><div>P(g)</div><div>F(g)</div><div>C(g)</div><div>塩(g)</div><input type="number" id="bf-cal" oninput="calcAll()"><input type="number" id="bf-p" oninput="calcAll()"><input type="number" id="bf-f" oninput="calcAll()"><input type="number" id="bf-c" oninput="calcAll()"><input type="number" id="bf-s" oninput="calcAll()"></div>
+                </details>
+
+                <details>
+                    <summary>☀️ 昼食</summary>
+                    <div>
+                        <input type="file" id="lu-file" accept="image/*" capture="environment" style="display:none;" onchange="handleImageUpload('lu', this)">
+                        <button class="action-btn ai-scan-btn" onclick="document.getElementById('lu-file').click()">📷 成分表をAIスキャン (自動加算)</button>
+                    </div>
+                    <div class="meal-grid"><div>Kcal</div><div>P(g)</div><div>F(g)</div><div>C(g)</div><div>塩(g)</div><input type="number" id="lu-cal" oninput="calcAll()"><input type="number" id="lu-p" oninput="calcAll()"><input type="number" id="lu-f" oninput="calcAll()"><input type="number" id="lu-c" oninput="calcAll()"><input type="number" id="lu-s" oninput="calcAll()"></div>
+                </details>
+
+                <details>
+                    <summary>🌙 夕食</summary>
+                    <div>
+                        <input type="file" id="dn-file" accept="image/*" capture="environment" style="display:none;" onchange="handleImageUpload('dn', this)">
+                        <button class="action-btn ai-scan-btn" onclick="document.getElementById('dn-file').click()">📷 成分表をAIスキャン (自動加算)</button>
+                    </div>
+                    <div class="meal-grid"><div>Kcal</div><div>P(g)</div><div>F(g)</div><div>C(g)</div><div>塩(g)</div><input type="number" id="dn-cal" oninput="calcAll()"><input type="number" id="dn-p" oninput="calcAll()"><input type="number" id="dn-f" oninput="calcAll()"><input type="number" id="dn-c" oninput="calcAll()"><input type="number" id="dn-s" oninput="calcAll()"></div>
+                </details>
+
+                <details>
+                    <summary>☕️ 間食</summary>
+                    <div>
+                        <input type="file" id="sn-file" accept="image/*" capture="environment" style="display:none;" onchange="handleImageUpload('sn', this)">
+                        <button class="action-btn ai-scan-btn" onclick="document.getElementById('sn-file').click()">📷 成分表をAIスキャン (自動加算)</button>
+                    </div>
+                    <div class="meal-grid"><div>Kcal</div><div>P(g)</div><div>F(g)</div><div>C(g)</div><div>塩(g)</div><input type="number" id="sn-cal" oninput="calcAll()"><input type="number" id="sn-p" oninput="calcAll()"><input type="number" id="sn-f" oninput="calcAll()"><input type="number" id="sn-c" oninput="calcAll()"><input type="number" id="sn-s" oninput="calcAll()"></div>
+                </details>
 
                 <div style="background: #fdfefe; padding: 10px; border: 1px solid #bdc3c7; border-radius: 8px; margin-top: 10px; font-size: 0.9em;">
                     <strong>📋 本日の摂取合計</strong><br>
@@ -304,7 +335,6 @@
         let currentLat = 35.6812; 
         let currentLng = 139.7671;
 
-        // ★ 自動追従モードのスイッチ（初期状態はON）
         let isTrackingMode = true; 
 
         window.saveApiKey = function() {
@@ -362,7 +392,87 @@
             }
         };
 
-        // ★ 「開始」ボタン：追従モードをONにして現在地へズーム(18)
+        // ★ 新機能：AIカメラ成分スキャン機能
+        window.handleImageUpload = async function(mealType, inputElem) {
+            const file = inputElem.files[0];
+            if (!file) return;
+
+            let GEMINI_API_KEY = localStorage.getItem('geminiApiKey');
+            if (!GEMINI_API_KEY) {
+                alert("「⚙️ AIコンシェルジュ設定」からAPIキーを登録してください！");
+                inputElem.value = "";
+                return;
+            }
+
+            const btn = inputElem.nextElementSibling;
+            const originalText = btn.innerText;
+            btn.innerText = "⏳ AIが画像を解析中...";
+            btn.disabled = true;
+
+            try {
+                const base64Data = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result.split(',')[1]);
+                    reader.onerror = error => reject(error);
+                    reader.readAsDataURL(file);
+                });
+
+                const prompt = `画像から栄養成分表示を読み取り、以下のJSON形式で数値を抽出してください。単位は不要で数値のみ（小数点可）を返してください。
+{
+  "kcal": カロリーの数値,
+  "p": タンパク質の数値,
+  "f": 脂質の数値,
+  "c": 炭水化物の数値,
+  "s": 食塩相当量の数値
+}
+見つからない項目は0にしてください。`;
+
+                // ※画像認識にはフラッシュモデル(gemini-2.5-flash)を使用
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{
+                            parts: [
+                                { text: prompt },
+                                { inlineData: { mimeType: file.type, data: base64Data } }
+                            ]
+                        }],
+                        generationConfig: { responseMimeType: "application/json" }
+                    })
+                });
+
+                if (!response.ok) throw new Error("通信エラー");
+
+                const data = await response.json();
+                const result = JSON.parse(data.candidates[0].content.parts[0].text);
+
+                // 現在の入力値を取得（空なら0）
+                const currentKcal = parseFloat(document.getElementById(mealType + '-cal').value) || 0;
+                const currentP = parseFloat(document.getElementById(mealType + '-p').value) || 0;
+                const currentF = parseFloat(document.getElementById(mealType + '-f').value) || 0;
+                const currentC = parseFloat(document.getElementById(mealType + '-c').value) || 0;
+                const currentS = parseFloat(document.getElementById(mealType + '-s').value) || 0;
+
+                // 取得した数値を加算して入力欄に戻す
+                document.getElementById(mealType + '-cal').value = currentKcal + (parseFloat(result.kcal) || 0);
+                document.getElementById(mealType + '-p').value = (currentP + (parseFloat(result.p) || 0)).toFixed(1);
+                document.getElementById(mealType + '-f').value = (currentF + (parseFloat(result.f) || 0)).toFixed(1);
+                document.getElementById(mealType + '-c').value = (currentC + (parseFloat(result.c) || 0)).toFixed(1);
+                document.getElementById(mealType + '-s').value = (currentS + (parseFloat(result.s) || 0)).toFixed(1);
+
+                calcAll();
+                alert(`成分表を読み取り、現在の数値に加算しました！\n\n【追加分】\nカロリー: ${result.kcal || 0} kcal\nタンパク質: ${result.p || 0} g\n脂質: ${result.f || 0} g\n炭水化物: ${result.c || 0} g\n食塩: ${result.s || 0} g`);
+
+            } catch (err) {
+                alert("画像の解析に失敗しました。成分表がはっきり写っているか確認してください。\n詳細: " + err.message);
+            } finally {
+                btn.innerText = originalText;
+                btn.disabled = false;
+                inputElem.value = ""; 
+            }
+        };
+
         window.centerMap = function() {
             if (window.map && currentLat && currentLng) {
                 isTrackingMode = true; 
@@ -406,7 +516,6 @@
                 if(tabName === 'walk' && window.map) { setTimeout(() => { window.map.invalidateSize(); }, 100); }
             };
 
-            // ★ 全画面切り替えの処理（ボタンが統合されたのでシンプルに）
             window.toggleFullscreen = function() {
                 const container = document.getElementById('map-container');
                 isFullscreen = !isFullscreen;
@@ -460,7 +569,7 @@
                     const nick = document.getElementById('nickname-input').value;
                     let displayName = "あなた";
                     if (nick) displayName = nick; else if (real) displayName = real;
-                    document.getElementById('app-title').innerHTML = `${displayName}の健康ログ <span class="version-badge">v10.16</span>`;
+                    document.getElementById('app-title').innerHTML = `${displayName}の健康ログ <span class="version-badge">v10.17</span>`;
 
                     const w = parseFloat(document.getElementById('weight-input').value) || 0;
                     const h = parseFloat(document.getElementById('height-input').value) || 0;
@@ -574,7 +683,6 @@
             };
 
             try {
-                // ★ ズームボタンを右下に強制移動
                 window.map = L.map('map', { zoomControl: false }).setView([35.6812, 139.7671], 15);
                 L.control.zoom({ position: 'bottomright' }).addTo(window.map);
                 
@@ -586,7 +694,6 @@
 
                 let isFirstLocation = true;
 
-                // ★ 指で動かした時に追従モードをOFFにする
                 window.map.on('dragstart', function() {
                     isTrackingMode = false;
                 });
@@ -601,7 +708,6 @@
                             map.setView(pos, 15);
                             isFirstLocation = false;
                         } else if (isTrackingMode) {
-                            // 追従モードがONなら現在のズーム倍率でついていく
                             map.setView(pos, map.getZoom());
                         }
                         
@@ -690,7 +796,6 @@
                             window.goalPath.setLatLngs(routeCoords);
                             map.fitBounds(window.goalPath.getBounds());
                             
-                            // ★ ルートを引いた直後は自動追従をOFFにして全体を見せる
                             isTrackingMode = false;
                             
                             const actualDistKm = (data.features[0].properties.summary.distance / 1000).toFixed(2);
@@ -760,7 +865,6 @@
                         window.goalPath.setLatLngs(routeCoords);
                         map.fitBounds(window.goalPath.getBounds());
                         
-                        // ★ ルートを引いた直後は自動追従をOFFにして全体を見せる
                         isTrackingMode = false;
                         
                         const actualDistKm = (bestData.features[0].properties.summary.distance / 1000).toFixed(2);
