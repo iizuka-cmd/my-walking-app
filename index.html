@@ -151,7 +151,7 @@
 
         <div id="tab-walk" class="main-tab-content active">
             <div class="card">
-                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v10.21</span></h1>
+                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v10.22</span></h1>
                 <div id="wake-lock-status" class="status-off">スリープ防止：OFF (画面タップ)</div>
                 
                 <div style="background: #f0f4f8; padding: 10px; border-radius: 10px; margin-bottom: 15px;">
@@ -190,8 +190,7 @@
 
                 <div class="data-grid">
                     <div class="data-item">今日の歩数<br><span id="steps-display" class="data-value">0</span> 歩</div>
-                    <div class="data-item">上がった階数<br><span id="stairs-display" class="data-value">0</span> 階</div>
-                    <div class="data-item" style="grid-column: span 2; background: #e8f8f5;">
+                    <div class="data-item" style="background: #e8f8f5;">
                         運動による消費カロリー<br><span id="calories-display" class="data-value" style="color: #16a085;">0</span> kcal
                     </div>
                 </div>
@@ -324,7 +323,7 @@
     <script>
         const ORS_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjBiNWMzYjRiODBlNTQxYjY4NmIwMTQ2MTIzNmYwNmFhIiwiaCI6Im11cm11cjY0In0=";
 
-        let steps = 0, stairs = 0, activeCal = 0;
+        let steps = 0, activeCal = 0;
         let myChart = null;
         window.currentGraphMode = 'weight';
         let isFullscreen = false;
@@ -525,11 +524,9 @@
         window.onload = function() {
             const urlParams = new URLSearchParams(window.location.search);
             steps = parseFloat(urlParams.get('steps')) || 0; 
-            stairs = parseFloat(urlParams.get('stairs')) || 0;
             
             // ★ 新機能：URLから「昨日のデータ」を受け取る
             const y_steps = parseFloat(urlParams.get('y_steps')) || 0;
-            const y_stairs = parseFloat(urlParams.get('y_stairs')) || 0;
             const hasYesterdayData = urlParams.has('y_steps');
 
             // ★ 修正部分：URLに昨日のデータがあれば、即座に履歴を更新（上書き）する！
@@ -552,7 +549,7 @@
                 } catch(e) {}
                 
                 // 昨日の運動カロリーを計算
-                const yActiveCal = Math.round((y_steps * spWeight * 0.0005) + (y_stairs * spWeight * 0.1)) || 0;
+                const yActiveCal = Math.round(y_steps * spWeight * 0.0005) || 0;
                 
                 // 履歴の中にすでに「昨日」のデータがあるか探す
                 const existingIndex = history.findIndex(item => item.date === yesterdayStr);
@@ -560,14 +557,13 @@
                 if (existingIndex > -1) {
                     // すでに履歴があれば、歩数とカロリーだけ更新する
                     history[existingIndex].steps = y_steps;
-                    history[existingIndex].stairs = y_stairs;
                     history[existingIndex].calories = yActiveCal;
                     history[existingIndex].balance = "自動保存 (歩数連携更新)";
                 } else {
                     // 履歴がなければ、新しく昨日の履歴を作る
                     history.unshift({
                         date: yesterdayStr,
-                        steps: y_steps, stairs: y_stairs, weight: spWeight || '--', calories: yActiveCal,
+                        steps: y_steps, weight: spWeight || '--', calories: yActiveCal,
                         bmi: 0, bmr: "自動", inCal: 0, p: 0, f: 0, c: 0, s: 0, 
                         balance: "自動保存 (歩数連携のみ)"
                     });
@@ -636,7 +632,6 @@
                 };
                 document.body.addEventListener('click', requestWakeLock);
                 document.getElementById('steps-display').innerText = steps.toLocaleString();
-                document.getElementById('stairs-display').innerText = stairs.toLocaleString();
             } catch(e) {}
 
             window.calcAll = function() {
@@ -645,7 +640,7 @@
                     const nick = document.getElementById('nickname-input').value;
                     let displayName = "あなた";
                     if (nick) displayName = nick; else if (real) displayName = real;
-                    document.getElementById('app-title').innerHTML = `${displayName}の健康ログ <span class="version-badge">v10.21</span>`;
+                    document.getElementById('app-title').innerHTML = `${displayName}の健康ログ <span class="version-badge">v10.22</span>`;
 
                     const w = parseFloat(document.getElementById('weight-input').value) || 0;
                     const h = parseFloat(document.getElementById('height-input').value) || 0;
@@ -666,7 +661,7 @@
                     if (w > 0 && h > 0 && a > 0) bmr = (g === 'male') ? Math.round(10*w + 6.25*h - 5*a + 5) : Math.round(10*w + 6.25*h - 5*a - 161);
                     document.getElementById('bmr-display').innerText = bmr;
                     
-                    activeCal = Math.round((steps * w * 0.0005) + (stairs * w * 0.1));
+                    activeCal = Math.round(steps * w * 0.0005);
                     document.getElementById('calories-display').innerText = activeCal.toLocaleString();
 
                     const getVal = (id) => parseFloat(document.getElementById(id).value) || 0;
@@ -721,14 +716,14 @@
                             let ySteps = hasYesterdayData ? y_steps : "不明";
                             let yActiveCal = "不明";
                             if (hasYesterdayData) {
-                                yActiveCal = Math.round((y_steps * (sp.weight||0) * 0.0005) + (y_stairs * (sp.weight||0) * 0.1)) || 0;
+                                yActiveCal = Math.round(y_steps * (sp.weight||0) * 0.0005) || 0;
                             }
                             
                             // カロリー入力がある、または「昨日の歩数」が送られてきた場合に自動保存
                             if(tCal > 0 || hasYesterdayData) {
                                 history.unshift({
                                     date: sp.lastDate,
-                                    steps: ySteps, stairs: hasYesterdayData ? y_stairs : 0, weight: sp.weight || '--', calories: yActiveCal,
+                                    steps: ySteps, weight: sp.weight || '--', calories: yActiveCal,
                                     bmi: sp.height ? (sp.weight / Math.pow(sp.height / 100, 2)).toFixed(1) : 0,
                                     bmr: sp.bmr || "自動", inCal: tCal, p: tP.toFixed(1), f: tF.toFixed(1), c: tC.toFixed(1), s: tS.toFixed(1), 
                                     balance: hasYesterdayData ? "自動保存 (歩数連携済)" : "食事のみ自動保存"
@@ -786,7 +781,7 @@
             window.saveCurrentData = function() {
                 try {
                     const date = new Date().toLocaleDateString();
-                    const newData = { date, steps, stairs, weight: document.getElementById('weight-input').value, calories: activeCal, bmi: document.getElementById('bmi-display').innerText, bmr: document.getElementById('bmr-display').innerText, inCal: document.getElementById('total-kcal').innerText, p: document.getElementById('total-p').innerText, f: document.getElementById('total-f').innerText, c: document.getElementById('total-c').innerText, s: document.getElementById('total-s').innerText, balance: document.getElementById('balance-result').innerText };
+                    const newData = { date, steps, weight: document.getElementById('weight-input').value, calories: activeCal, bmi: document.getElementById('bmi-display').innerText, bmr: document.getElementById('bmr-display').innerText, inCal: document.getElementById('total-kcal').innerText, p: document.getElementById('total-p').innerText, f: document.getElementById('total-f').innerText, c: document.getElementById('total-c').innerText, s: document.getElementById('total-s').innerText, balance: document.getElementById('balance-result').innerText };
                     let history = JSON.parse(localStorage.getItem('walkingHistory')) || [];
                     const index = history.findIndex(item => item.date === date);
                     if (index > -1) history[index] = newData; else history.unshift(newData);
