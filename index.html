@@ -532,6 +532,51 @@
             const y_stairs = parseFloat(urlParams.get('y_stairs')) || 0;
             const hasYesterdayData = urlParams.has('y_steps');
 
+            // ★ 修正部分：URLに昨日のデータがあれば、即座に履歴を更新（上書き）する！
+            if (hasYesterdayData) {
+                let history = JSON.parse(localStorage.getItem('walkingHistory')) || [];
+                
+                // 昨日の日付を計算
+                let yesterday = new Date();
+                yesterday.setDate(yesterday.getDate() - 1);
+                const yesterdayStr = yesterday.toLocaleDateString();
+                
+                // プロフィールから体重を取得（カロリー計算用）
+                let spWeight = 0;
+                try {
+                    const savedStr = localStorage.getItem('userProfileV7') || localStorage.getItem('userProfileV6') || localStorage.getItem('userProfileV4') || localStorage.getItem('userProfileV2');
+                    if(savedStr) {
+                        let sp = JSON.parse(savedStr);
+                        spWeight = parseFloat(sp.weight) || 0;
+                    }
+                } catch(e) {}
+                
+                // 昨日の運動カロリーを計算
+                const yActiveCal = Math.round((y_steps * spWeight * 0.0005) + (y_stairs * spWeight * 0.1)) || 0;
+                
+                // 履歴の中にすでに「昨日」のデータがあるか探す
+                const existingIndex = history.findIndex(item => item.date === yesterdayStr);
+                
+                if (existingIndex > -1) {
+                    // すでに履歴があれば、歩数とカロリーだけ更新する
+                    history[existingIndex].steps = y_steps;
+                    history[existingIndex].stairs = y_stairs;
+                    history[existingIndex].calories = yActiveCal;
+                    history[existingIndex].balance = "自動保存 (歩数連携更新)";
+                } else {
+                    // 履歴がなければ、新しく昨日の履歴を作る
+                    history.unshift({
+                        date: yesterdayStr,
+                        steps: y_steps, stairs: y_stairs, weight: spWeight || '--', calories: yActiveCal,
+                        bmi: 0, bmr: "自動", inCal: 0, p: 0, f: 0, c: 0, s: 0, 
+                        balance: "自動保存 (歩数連携のみ)"
+                    });
+                }
+                
+                // 履歴を保存
+                localStorage.setItem('walkingHistory', JSON.stringify(history));
+            }
+
             const savedPersona = localStorage.getItem('aiPersona');
             if (savedPersona) {
                 document.getElementById('ai-persona').value = savedPersona;
