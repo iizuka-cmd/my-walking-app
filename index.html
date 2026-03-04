@@ -151,7 +151,7 @@
 
         <div id="tab-walk" class="main-tab-content active">
             <div class="card">
-                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v10.20</span></h1>
+                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v10.21</span></h1>
                 <div id="wake-lock-status" class="status-off">スリープ防止：OFF (画面タップ)</div>
                 
                 <div style="background: #f0f4f8; padding: 10px; border-radius: 10px; margin-bottom: 15px;">
@@ -349,7 +349,6 @@
             }
         };
 
-        // ★ 新機能：キャラクター切り替えと同時に画像を連動させる関数
         window.changePersona = function() {
             const val = document.getElementById('ai-persona').value;
             localStorage.setItem('aiPersona', val);
@@ -384,7 +383,6 @@
             const targetSteps = document.getElementById('target-steps-input').value || 8000;
             const persona = document.getElementById('ai-persona').value;
             
-            // ★ 全6キャラ分の女性特化プロンプト（性格・口調）
             let personaPrompt = "";
             if(persona === 'maid') {
                 personaPrompt = `あなたは優しくて丁寧なメイドです。ユーザーを「${userName}」と呼び、献身的に褒めて癒やし、健康を気遣う口調で話してください。語尾は「〜ですね！」「〜ですよ♪」など柔らかく。`;
@@ -525,7 +523,15 @@
         };
 
         window.onload = function() {
-            // ★ 初期ロード時にキャラクター設定を読み込み、画像も更新する
+            const urlParams = new URLSearchParams(window.location.search);
+            steps = parseFloat(urlParams.get('steps')) || 0; 
+            stairs = parseFloat(urlParams.get('stairs')) || 0;
+            
+            // ★ 新機能：URLから「昨日のデータ」を受け取る
+            const y_steps = parseFloat(urlParams.get('y_steps')) || 0;
+            const y_stairs = parseFloat(urlParams.get('y_stairs')) || 0;
+            const hasYesterdayData = urlParams.has('y_steps');
+
             const savedPersona = localStorage.getItem('aiPersona');
             if (savedPersona) {
                 document.getElementById('ai-persona').value = savedPersona;
@@ -584,8 +590,6 @@
                     } catch (err) {}
                 };
                 document.body.addEventListener('click', requestWakeLock);
-                const urlParams = new URLSearchParams(window.location.search);
-                steps = parseFloat(urlParams.get('steps')) || 0; stairs = parseFloat(urlParams.get('stairs')) || 0;
                 document.getElementById('steps-display').innerText = steps.toLocaleString();
                 document.getElementById('stairs-display').innerText = stairs.toLocaleString();
             } catch(e) {}
@@ -596,7 +600,7 @@
                     const nick = document.getElementById('nickname-input').value;
                     let displayName = "あなた";
                     if (nick) displayName = nick; else if (real) displayName = real;
-                    document.getElementById('app-title').innerHTML = `${displayName}の健康ログ <span class="version-badge">v10.20</span>`;
+                    document.getElementById('app-title').innerHTML = `${displayName}の健康ログ <span class="version-badge">v10.21</span>`;
 
                     const w = parseFloat(document.getElementById('weight-input').value) || 0;
                     const h = parseFloat(document.getElementById('height-input').value) || 0;
@@ -640,14 +644,14 @@
                     const balance = tCal - (bmr + activeCal);
                     const balDiv = document.getElementById('balance-result');
                     if(bmr === 0) { balDiv.innerHTML = "プロフィールを入力してください"; balDiv.className = "balance-result"; }
-                    else if (balance > 200) { balDiv.innerHTML = `⚠️ ＋${balance} kcal (カロリーオーバー!)`; balDiv.className = "balance-result result-bad"; }
+                    else if (balance > 200) { balDiv.innerHTML = `⚠️ ＋${balance} kcal (カロオーバー!)`; balDiv.className = "balance-result result-bad"; }
                     else if (balance < -500) { balDiv.innerHTML = `⚠️ ${balance} kcal (食べなさすぎ!)`; balDiv.className = "balance-result result-bad"; }
                     else { balDiv.innerHTML = `✨ ${balance > 0 ? '＋'+balance : balance} kcal (超適正ペース!)`; balDiv.className = "balance-result result-good"; }
 
                     const cm = { bf: [getVal('bf-cal'), getVal('bf-p'), getVal('bf-f'), getVal('bf-c'), getVal('bf-s')], lu: [getVal('lu-cal'), getVal('lu-p'), getVal('lu-f'), getVal('lu-c'), getVal('lu-s')], dn: [getVal('dn-cal'), getVal('dn-p'), getVal('dn-f'), getVal('dn-c'), getVal('dn-s')], sn: [getVal('sn-cal'), getVal('sn-p'), getVal('sn-f'), getVal('sn-c'), getVal('sn-s')] };
                     
                     const todayStr = new Date().toLocaleDateString();
-                    localStorage.setItem('userProfileV7', JSON.stringify({realname: real, nickname: nick, weight: w, height: h, dob: dobStr, gender: g, targetSteps: targetSteps, meals: cm, lastDate: todayStr}));
+                    localStorage.setItem('userProfileV7', JSON.stringify({realname: real, nickname: nick, weight: w, height: h, dob: dobStr, gender: g, targetSteps: targetSteps, meals: cm, lastDate: todayStr, bmr: bmr}));
                 } catch(e) {}
             };
 
@@ -657,6 +661,7 @@
                     let sp = JSON.parse(savedStr);
                     const todayStr = new Date().toLocaleDateString();
 
+                    // ★ 日付が変わった時の「完全」自動保存ロジック（ショートカット連携）
                     if (sp.lastDate && sp.lastDate !== todayStr) {
                         let history = JSON.parse(localStorage.getItem('walkingHistory')) || [];
                         
@@ -667,16 +672,26 @@
                                 add(sp.meals.bf); add(sp.meals.lu); add(sp.meals.dn); add(sp.meals.sn);
                             }
                             
-                            if(tCal > 0) {
+                            // ショートカットから昨日の歩数が送られてきていれば、カロリーも再計算する
+                            let ySteps = hasYesterdayData ? y_steps : "不明";
+                            let yActiveCal = "不明";
+                            if (hasYesterdayData) {
+                                yActiveCal = Math.round((y_steps * (sp.weight||0) * 0.0005) + (y_stairs * (sp.weight||0) * 0.1)) || 0;
+                            }
+                            
+                            // カロリー入力がある、または「昨日の歩数」が送られてきた場合に自動保存
+                            if(tCal > 0 || hasYesterdayData) {
                                 history.unshift({
                                     date: sp.lastDate,
-                                    steps: "不明", stairs: 0, weight: sp.weight || '--', calories: "不明",
+                                    steps: ySteps, stairs: hasYesterdayData ? y_stairs : 0, weight: sp.weight || '--', calories: yActiveCal,
                                     bmi: sp.height ? (sp.weight / Math.pow(sp.height / 100, 2)).toFixed(1) : 0,
-                                    bmr: "自動", inCal: tCal, p: tP.toFixed(1), f: tF.toFixed(1), c: tC.toFixed(1), s: tS.toFixed(1), balance: "食事のみ自動保存"
+                                    bmr: sp.bmr || "自動", inCal: tCal, p: tP.toFixed(1), f: tF.toFixed(1), c: tC.toFixed(1), s: tS.toFixed(1), 
+                                    balance: hasYesterdayData ? "自動保存 (歩数連携済)" : "食事のみ自動保存"
                                 });
                                 localStorage.setItem('walkingHistory', JSON.stringify(history));
                             }
                         }
+                        // 新しい一日のために食事入力欄をリセット
                         sp.meals = { bf: [], lu: [], dn: [], sn: [] };
                     }
                     
