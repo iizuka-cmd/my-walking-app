@@ -117,7 +117,7 @@
                     
                     <div class="concierge-controls">
                         <select id="ai-persona" onchange="changePersona()">
-                            <option value="concierge">🏨 コンシェルジュ (フォーマル)</option>
+                            <option value="concierge">🤵 コンシェルジュ (フォーマル)</option>
                             <option value="maid">🌸 メイド (優しい)</option>
                             <option value="student">🎒 学生 (おっとり甘え)</option>
                             <option value="jiraikei">💔 地雷系 (ツンデレ心配性)</option>
@@ -138,7 +138,7 @@
 
         <div id="tab-walk" class="main-tab-content active">
             <div class="card">
-                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v12.0</span></h1>
+                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v12.1</span></h1>
                 <div id="wake-lock-status" class="status-off">スリープ防止：OFF (画面タップ)</div>
                 
                 <div style="background: #f0f4f8; padding: 10px; border-radius: 10px; margin-bottom: 15px;">
@@ -338,7 +338,6 @@
 
         let foodDatabase = {};
 
-        // ★ 新機能：コンシェルジュエリアの表示/非表示切り替え
         window.toggleConcierge = function() {
             const content = document.getElementById('concierge-content');
             const btn = document.getElementById('concierge-toggle-btn');
@@ -359,12 +358,11 @@
             else { localStorage.removeItem('geminiApiKey'); alert("APIキーを削除しました。"); }
         };
 
-        // ★ ペルソナに「ホテルコンシェルジュ」を追加
         window.changePersona = function() {
             const val = document.getElementById('ai-persona').value;
             localStorage.setItem('aiPersona', val);
             const imgElem = document.getElementById('avatar-image');
-            if(val === 'concierge') imgElem.src = 'avatar6.png'; // 👈ここにコンシェルジュ用の画像名を入れてください！
+            if(val === 'concierge') imgElem.src = 'avatar6.png';
             if(val === 'maid') imgElem.src = 'avatar.png';
             if(val === 'student') imgElem.src = 'avatar1.png';
             if(val === 'jiraikei') imgElem.src = 'avatar2.png';
@@ -373,11 +371,12 @@
             if(val === 'trainer') imgElem.src = 'avatar5.png';
         };
 
-        // コンシェルジュへのペルソナプロンプト生成関数（共通）
+        // ★ 修正部分：コンシェルジュが「ホテルマン」になりきらないように設定を変更
         function getPersonaPrompt() {
             const persona = document.getElementById('ai-persona').value;
             const userName = document.getElementById('nickname-input').value || document.getElementById('realname-input').value || "ご主人様";
-            if(persona === 'concierge') return `あなたは高級ホテルの専属コンシェルジュです。ユーザーを「${userName}様」と呼び、非常に洗練されたフォーマルで丁寧な敬語を使用し、プロフェッショナルとして品格のある対応をしてください。`;
+            
+            if(persona === 'concierge') return `あなたはユーザー専属のプライベート・コンシェルジュ（優秀なAI執事）です。※ホテルや実在の施設に所属している設定ではありません。常にスマートフォンのアプリ内からユーザーの健康と歩行をサポートする専用のパートナーとして振る舞ってください。ユーザーを「${userName}様」と呼び、非常に洗練されたフォーマルで丁寧な敬語を使用し、プロフェッショナルとして品格のある対応をしてください。`;
             if(persona === 'maid') return `あなたは優しくて丁寧なメイドです。ユーザーを「${userName}」と呼び、献身的に褒めて癒やし、健康を気遣う口調で話してください。語尾は「〜ですね！」「〜ですよ♪」など。`;
             if(persona === 'student') return `あなたはおっとりしていて、少し甘えん坊な女子学生です。ユーザーを「${userName}」と呼び、「〜だねぇ」「〜してほしいな」と慕うように、健康を気遣ってください。`;
             if(persona === 'jiraikei') return `あなたはツンデレで地雷系の女の子です。ユーザーを「${userName}」と呼び、素直になれず強気ですが、実は誰よりも健康を心配している口調で。「〜しなさいよね！」など。`;
@@ -416,7 +415,6 @@
             }
         };
 
-        // ★ 新機能：AIにテキストでルートを頼んだり会話したりする処理
         window.sendAiChat = async function() {
             const inputElem = document.getElementById('ai-chat-input');
             const userInput = inputElem.value.trim();
@@ -461,7 +459,6 @@ ${getPersonaPrompt()}
 
                 msgBox.innerHTML = result.message;
 
-                // AIの判断結果をもとに、アプリ側のルート検索機能を自動発動！
                 if (result.type === 'loop') {
                     document.querySelector('input[name="route-mode"][value="loop"]').checked = true;
                     toggleRouteMode();
@@ -471,7 +468,6 @@ ${getPersonaPrompt()}
                     generateGoalRoute();
                 } else if (result.type === 'dest' && result.name) {
                     msgBox.innerHTML += `<br><small style="color:#7f8c8d;">📍「${result.name}」の場所を検索中...</small>`;
-                    // ジオコーディングAPI（OpenStreetMap）で緯度経度を取得
                     const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(result.name)}&countrycodes=jp&limit=1`);
                     const geoData = await geoRes.json();
                     
@@ -741,7 +737,7 @@ ${getPersonaPrompt()}
                     const real = document.getElementById('realname-input').value;
                     const nick = document.getElementById('nickname-input').value;
                     let displayName = "あなた"; if (nick) displayName = nick; else if (real) displayName = real;
-                    document.getElementById('app-title').innerHTML = `${displayName}の健康ログ <span class="version-badge">v12.0</span>`;
+                    document.getElementById('app-title').innerHTML = `${displayName}の健康ログ <span class="version-badge">v12.1</span>`;
 
                     const w = parseFloat(document.getElementById('weight-input').value) || 0;
                     const h = parseFloat(document.getElementById('height-input').value) || 0;
