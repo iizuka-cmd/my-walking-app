@@ -100,7 +100,6 @@
         .food-input-row input { flex: 1; font-size: 0.9em; }
         .food-input-row button { width: auto; margin-top: 0; padding: 8px 12px; background: #27ae60; font-size: 0.85em; }
 
-        /* 新機能：食事ログ＆PFCバーのデザイン */
         .food-log-container { margin-top: 10px; display: flex; flex-direction: column; gap: 5px; }
         .food-log-item { display: flex; justify-content: space-between; align-items: center; background: #fff; border: 1px solid #ddd; padding: 6px 10px; border-radius: 5px; font-size: 0.85em; }
         .food-log-item button { background: #e74c3c; color: white; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-weight: bold; }
@@ -149,7 +148,7 @@
 
         <div id="tab-walk" class="main-tab-content active">
             <div class="card">
-                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v13.0</span></h1>
+                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v13.1</span></h1>
                 <div id="wake-lock-status" class="status-off">スリープ防止：OFF (画面タップ)</div>
                 
                 <div style="background: #f0f4f8; padding: 10px; border-radius: 10px; margin-bottom: 15px;">
@@ -374,8 +373,6 @@
         let currentLat = 35.6812; let currentLng = 139.7671; let isTrackingMode = true; 
 
         let foodDatabase = {};
-        
-        // ★ 新機能：当日の食事アイテム履歴を保持するオブジェクト
         let todayFoodLogs = { bf: [], lu: [], dn: [], sn: [] };
 
         window.toggleConcierge = function() {
@@ -421,6 +418,7 @@
             return `あなたはAIコンシェルジュです。ユーザーを「${userName}」と呼び、親切にサポートしてください。`;
         }
 
+        // ★ AIアドバイスの強化と安全対策（エラーを完全にキャッチする）
         window.getAiAdvice = async function() {
             const msgBox = document.getElementById('ai-message');
             const btn = document.getElementById('ai-btn');
@@ -431,13 +429,13 @@
             btn.disabled = true;
             msgBox.innerHTML = '<span class="ai-typing">データを分析して考えています...💭</span>';
 
-            const bmrText = document.getElementById('bmr-display').innerText;
-            const inCalText = document.getElementById('total-kcal').innerText;
-            const balText = document.getElementById('balance-result').innerText;
+            // 万が一データが空でもエラーで止まらないように安全取得
+            const bmrText = document.getElementById('bmr-display').innerText || "0";
+            const inCalText = document.getElementById('total-kcal').innerText || "0";
+            const balText = document.getElementById('balance-result').innerText || "不明";
             const targetSteps = document.getElementById('target-steps-input').value || 8000;
+            const goalMode = document.getElementById('goal-mode').value || 'keep';
             
-            // ★ AIに「現在の目標モード」を伝える
-            const goalMode = document.getElementById('goal-mode').value;
             let goalStr = "健康維持";
             if(goalMode === 'diet') goalStr = "ダイエット（消費カロリー > 摂取カロリーを目指す）";
             if(goalMode === 'muscle') goalStr = "筋力アップ（タンパク質多め、消費カロリー < 摂取カロリー気味を目指す）";
@@ -447,11 +445,23 @@
 【今日のデータ】\n・目標歩数: ${targetSteps} 歩\n・現在の歩数: ${steps} 歩\n・運動消費カロリー: ${activeCal} kcal\n・摂取カロリー: ${inCalText} kcal\n・基礎代謝: ${bmrText} kcal\n・カロリーバランス: ${balText}`;
 
             try {
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) });
-                if (!response.ok) throw new Error("通信エラー");
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`, { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' }, 
+                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) 
+                });
+                
+                if (!response.ok) throw new Error("API通信エラー");
                 const data = await response.json();
-                msgBox.innerText = data.candidates[0].content.parts[0].text.replace(/\*/g, ''); 
+                
+                // 万が一Geminiが安全基準ブロック等で空の返答をよこした場合の対策
+                if(data.candidates && data.candidates[0].content && data.candidates[0].content.parts[0]) {
+                    msgBox.innerText = data.candidates[0].content.parts[0].text.replace(/\*/g, ''); 
+                } else {
+                    msgBox.innerText = "ごめんなさい、AIが回答を生成できませんでした（安全基準等によるブロックの可能性があります）。";
+                }
             } catch (err) {
+                console.error("AI Error:", err);
                 msgBox.innerText = "ごめんなさい、うまく考えがまとまりませんでした。通信状況を確認してください！";
             } finally {
                 btn.disabled = false;
@@ -494,6 +504,9 @@ ${getPersonaPrompt()}
                 });
                 if (!response.ok) throw new Error("通信エラー");
                 const data = await response.json();
+                
+                if(!data.candidates || !data.candidates[0].content) throw new Error("AIが空の応答を返しました");
+                
                 let textResult = data.candidates[0].content.parts[0].text;
                 const match = textResult.match(/\{[\s\S]*\}/);
                 if(match) textResult = match[0];
@@ -530,6 +543,7 @@ ${getPersonaPrompt()}
                     }
                 }
             } catch (err) {
+                console.error("Chat Error:", err);
                 msgBox.innerText = "ごめんなさい、うまく理解できませんでした。通信状況を確認してください！";
             } finally {
                 inputElem.disabled = false; btn.disabled = false; inputElem.value = "";
@@ -544,7 +558,6 @@ ${getPersonaPrompt()}
             }
         };
 
-        // ★ 新機能：食事履歴の描画と削除
         window.renderFoodLogs = function(mealType) {
             const container = document.getElementById(mealType + '-log');
             if(!container) return;
@@ -566,7 +579,6 @@ ${getPersonaPrompt()}
                 const item = todayFoodLogs[mealType][idx];
                 todayFoodLogs[mealType].splice(idx, 1);
                 
-                // 合計値からマイナスする（0未満にはならないように）
                 const cCal = parseFloat(document.getElementById(mealType+'-cal').value) || 0;
                 const cP = parseFloat(document.getElementById(mealType+'-p').value) || 0;
                 const cF = parseFloat(document.getElementById(mealType+'-f').value) || 0;
@@ -585,12 +597,10 @@ ${getPersonaPrompt()}
         };
 
         window.addNutritionToMeal = function(mealType, resultObj, foodName = "画像解析アイテム") {
-            // アイテムをリストに保存
             const logItem = { id: Date.now(), name: foodName, ...resultObj };
             todayFoodLogs[mealType].push(logItem);
             renderFoodLogs(mealType);
 
-            // 合計値にプラスする
             const currentKcal = parseFloat(document.getElementById(mealType + '-cal').value) || 0;
             const currentP = parseFloat(document.getElementById(mealType + '-p').value) || 0;
             const currentF = parseFloat(document.getElementById(mealType + '-f').value) || 0;
@@ -720,7 +730,6 @@ ${getPersonaPrompt()}
             const y_steps = parseFloat(urlParams.get('y_steps')) || 0;
             const hasYesterdayData = urlParams.has('y_steps');
 
-            // ★ 自動保存時の「収支バグ」を完全修正！
             if (hasYesterdayData) {
                 let history = JSON.parse(localStorage.getItem('walkingHistory')) || [];
                 let yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
@@ -737,7 +746,6 @@ ${getPersonaPrompt()}
                 
                 if (existingIndex > -1) {
                     history[existingIndex].steps = y_steps; history[existingIndex].calories = yActiveCal;
-                    // カロリーバランスを再計算して上書き
                     const tCal = parseFloat(history[existingIndex].inCal) || 0;
                     if(spBmr > 0) {
                         const bal = tCal - (spBmr + yActiveCal);
@@ -765,6 +773,15 @@ ${getPersonaPrompt()}
                 if (savedDB) foodDatabase = JSON.parse(savedDB);
                 updateFoodDatalist();
             } catch(e) {}
+
+            try {
+                // UI構築前に設定を読み込む（目標モード等の初期化用）
+                const savedStr = localStorage.getItem('userProfileV7');
+                if(savedStr) {
+                    const sp = JSON.parse(savedStr);
+                    if (sp.goalMode) document.getElementById('goal-mode').value = sp.goalMode;
+                }
+            } catch(e){}
 
             window.switchMainTab = function(tabName) {
                 document.querySelectorAll('.main-tab-content').forEach(el => el.classList.remove('active'));
@@ -809,12 +826,13 @@ ${getPersonaPrompt()}
                 document.getElementById('steps-display').innerText = steps.toLocaleString();
             } catch(e) {}
 
+            // ★ 超安定化：計算エラーを絶対に防ぐ安全設計の calcAll
             window.calcAll = function() {
                 try {
                     const real = document.getElementById('realname-input').value;
                     const nick = document.getElementById('nickname-input').value;
                     let displayName = "あなた"; if (nick) displayName = nick; else if (real) displayName = real;
-                    document.getElementById('app-title').innerHTML = `${displayName}の健康ログ <span class="version-badge">v13.0</span>`;
+                    document.getElementById('app-title').innerHTML = `${displayName}の健康ログ <span class="version-badge">v13.1</span>`;
 
                     const w = parseFloat(document.getElementById('weight-input').value) || 0;
                     const h = parseFloat(document.getElementById('height-input').value) || 0;
@@ -830,13 +848,25 @@ ${getPersonaPrompt()}
                         if (today.getMonth() - dob.getMonth() < 0 || (today.getMonth() - dob.getMonth() === 0 && today.getDate() < dob.getDate())) a--;
                         document.getElementById('calc-age').innerText = a;
                     }
-                    let bmi = 0; if (h > 0) bmi = (w / Math.pow(h / 100, 2)).toFixed(1);
-                    document.getElementById('bmi-display').innerText = bmi;
-                    let bmr = 0;
-                    if (w > 0 && h > 0 && a > 0) bmr = (g === 'male') ? Math.round(10*w + 6.25*h - 5*a + 5) : Math.round(10*w + 6.25*h - 5*a - 161);
+
+                    // BMI計算 (安全処理)
+                    let bmi = 0; if (h > 0 && w > 0) bmi = (w / Math.pow(h / 100, 2)).toFixed(1);
+                    document.getElementById('bmi-display').innerText = bmi || "0.0";
+                    
+                    // 基礎代謝計算 (年齢や身長が未入力でも、体重があればザックリ計算してエラーを回避する)
+                    let baseBmr = 0;
+                    if (w > 0) {
+                        if (h > 0 && a > 0) {
+                            baseBmr = (g === 'male') ? (10*w + 6.25*h - 5*a + 5) : (10*w + 6.25*h - 5*a - 161);
+                        } else {
+                            baseBmr = w * 22; // 身長・年齢がない場合の仮の基礎代謝
+                        }
+                    }
+                    const bmr = Math.max(0, Math.round(baseBmr));
                     document.getElementById('bmr-display').innerText = bmr;
                     
-                    activeCal = Math.round(steps * w * 0.0005); document.getElementById('calories-display').innerText = activeCal.toLocaleString();
+                    activeCal = Math.round(steps * w * 0.0005) || 0; 
+                    document.getElementById('calories-display').innerText = activeCal.toLocaleString();
 
                     const getVal = (id) => parseFloat(document.getElementById(id).value) || 0;
                     const tCal = getVal('bf-cal') + getVal('lu-cal') + getVal('dn-cal') + getVal('sn-cal');
@@ -852,38 +882,41 @@ ${getPersonaPrompt()}
                     
                     const balance = tCal - (bmr + activeCal);
                     const balDiv = document.getElementById('balance-result');
-                    if(bmr === 0) { balDiv.innerHTML = "プロフィールを入力してください"; balDiv.className = "balance-result"; }
+                    if(bmr === 0) { balDiv.innerHTML = "体重を入力してください"; balDiv.className = "balance-result"; }
                     else if (balance > 200) { balDiv.innerHTML = `⚠️ ＋${balance} kcal (カロオーバー!)`; balDiv.className = "balance-result result-bad"; }
                     else if (balance < -500) { balDiv.innerHTML = `⚠️ ${balance} kcal (食べなさすぎ!)`; balDiv.className = "balance-result result-bad"; }
                     else { balDiv.innerHTML = `✨ ${balance > 0 ? '＋'+balance : balance} kcal (超適正ペース!)`; balDiv.className = "balance-result result-good"; }
 
-                    // ★ 新機能：PFC目標バーの計算と描画
+                    // PFC目標バーの計算と描画（BMRが0でもUIを安全に更新）
                     let targetP = 0, targetF = 0, targetC = 0, targetCal = 0;
-                    const tdee = bmr + activeCal;
-                    if (w > 0 && bmr > 0) {
-                        if(goalMode === 'diet') { targetCal = Math.max(bmr, tdee - 300); targetP = w * 1.5; targetF = w * 0.8; }
-                        else if(goalMode === 'muscle') { targetCal = tdee + 300; targetP = w * 2.0; targetF = w * 1.0; }
-                        else { targetCal = tdee; targetP = w * 1.2; targetF = w * 1.0; }
-                        
+                    if (w > 0) {
+                        const currentTdee = bmr + activeCal;
+                        if(goalMode === 'diet') { targetCal = Math.max(bmr, currentTdee - 300); targetP = w * 1.5; targetF = w * 0.8; }
+                        else if(goalMode === 'muscle') { targetCal = currentTdee + 300; targetP = w * 2.0; targetF = w * 1.0; }
+                        else { targetCal = currentTdee; targetP = w * 1.2; targetF = w * 1.0; }
                         targetC = Math.max(0, (targetCal - (targetP * 4 + targetF * 9)) / 4);
-                        
-                        document.getElementById('target-cal-display').innerText = Math.round(targetCal);
-                        document.getElementById('p-text').innerText = `${tP.toFixed(1)} / ${Math.round(targetP)} g`;
-                        document.getElementById('p-bar').style.width = Math.min(100, (tP / targetP) * 100) + '%';
-                        document.getElementById('f-text').innerText = `${tF.toFixed(1)} / ${Math.round(targetF)} g`;
-                        document.getElementById('f-bar').style.width = Math.min(100, (tF / targetF) * 100) + '%';
-                        document.getElementById('c-text').innerText = `${tC.toFixed(1)} / ${Math.round(targetC)} g`;
-                        document.getElementById('c-bar').style.width = Math.min(100, (tC / targetC) * 100) + '%';
                     }
+
+                    document.getElementById('target-cal-display').innerText = Math.round(targetCal) || 0;
+                    document.getElementById('p-text').innerText = `${tP.toFixed(1)} / ${Math.round(targetP)} g`;
+                    document.getElementById('p-bar').style.width = targetP > 0 ? Math.min(100, (tP / targetP) * 100) + '%' : '0%';
+                    document.getElementById('f-text').innerText = `${tF.toFixed(1)} / ${Math.round(targetF)} g`;
+                    document.getElementById('f-bar').style.width = targetF > 0 ? Math.min(100, (tF / targetF) * 100) + '%' : '0%';
+                    document.getElementById('c-text').innerText = `${tC.toFixed(1)} / ${Math.round(targetC)} g`;
+                    document.getElementById('c-bar').style.width = targetC > 0 ? Math.min(100, (tC / targetC) * 100) + '%' : '0%';
 
                     const cm = { bf: [getVal('bf-cal'), getVal('bf-p'), getVal('bf-f'), getVal('bf-c'), getVal('bf-s')], lu: [getVal('lu-cal'), getVal('lu-p'), getVal('lu-f'), getVal('lu-c'), getVal('lu-s')], dn: [getVal('dn-cal'), getVal('dn-p'), getVal('dn-f'), getVal('dn-c'), getVal('dn-s')], sn: [getVal('sn-cal'), getVal('sn-p'), getVal('sn-f'), getVal('sn-c'), getVal('sn-s')] };
                     const todayStr = new Date().toLocaleDateString();
+                    
+                    // 目標モードも一緒に確実に保存する
                     localStorage.setItem('userProfileV7', JSON.stringify({realname: real, nickname: nick, weight: w, height: h, dob: dobStr, gender: g, targetSteps: targetSteps, goalMode: goalMode, meals: cm, todayLogs: todayFoodLogs, lastDate: todayStr, bmr: bmr}));
-                } catch(e) {}
+                } catch(e) {
+                    console.error("UI計算中にエラーが発生しました:", e);
+                }
             };
 
             try {
-                const savedStr = localStorage.getItem('userProfileV7') || localStorage.getItem('userProfileV6') || localStorage.getItem('userProfileV4') || localStorage.getItem('userProfileV2');
+                const savedStr = localStorage.getItem('userProfileV7') || localStorage.getItem('userProfileV6');
                 if (savedStr) {
                     let sp = JSON.parse(savedStr);
                     const todayStr = new Date().toLocaleDateString();
@@ -900,7 +933,6 @@ ${getPersonaPrompt()}
                             let yActiveCal = "不明";
                             if (hasYesterdayData) yActiveCal = Math.round(y_steps * (sp.weight||0) * 0.0005) || 0;
                             
-                            // ★ 自動保存時の収支計算バグ修正
                             let balStr = "---";
                             if (sp.bmr > 0) {
                                 const bal = tCal - (sp.bmr + (yActiveCal === "不明" ? 0 : yActiveCal));
@@ -918,7 +950,7 @@ ${getPersonaPrompt()}
                             }
                         }
                         sp.meals = { bf: [], lu: [], dn: [], sn: [] };
-                        sp.todayLogs = { bf: [], lu: [], dn: [], sn: [] }; // 日付が変わったらログもリセット
+                        sp.todayLogs = { bf: [], lu: [], dn: [], sn: [] };
                     }
                     
                     sp.lastDate = todayStr;
@@ -931,7 +963,6 @@ ${getPersonaPrompt()}
                     if (sp.gender) document.getElementById('gender-input').value = sp.gender;
                     if (sp.dob) document.getElementById('dob-input').value = sp.dob;
                     if (sp.targetSteps) document.getElementById('target-steps-input').value = sp.targetSteps;
-                    if (sp.goalMode) document.getElementById('goal-mode').value = sp.goalMode;
                     
                     if (sp.meals) {
                         const sv = (p, a) => { document.getElementById(p+'-cal').value = a[0]||''; document.getElementById(p+'-p').value = a[1]||''; document.getElementById(p+'-f').value = a[2]||''; document.getElementById(p+'-c').value = a[3]||''; document.getElementById(p+'-s').value = a[4]||''; };
