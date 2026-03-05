@@ -138,7 +138,7 @@
 
         <div id="tab-walk" class="main-tab-content active">
             <div class="card">
-                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v12.1</span></h1>
+                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v12.2</span></h1>
                 <div id="wake-lock-status" class="status-off">スリープ防止：OFF (画面タップ)</div>
                 
                 <div style="background: #f0f4f8; padding: 10px; border-radius: 10px; margin-bottom: 15px;">
@@ -287,7 +287,7 @@
                     P: <span id="total-p">0</span>g / F: <span id="total-f">0</span>g / C: <span id="total-c">0</span>g / 塩分: <span id="total-s">0</span>g
                 </div>
                 <div class="balance-box">
-                    🔥 <strong>今日のカロリー収支</strong><br>
+                    🔥 <strong>今日のカロリーバランス</strong><br>
                     <small>摂取 <span id="bal-in">0</span> - 消費(基礎<span id="bal-bmr">0</span>+運動<span id="bal-act">0</span>)</small>
                     <div id="balance-result" class="balance-result">---</div>
                 </div>
@@ -371,11 +371,9 @@
             if(val === 'trainer') imgElem.src = 'avatar5.png';
         };
 
-        // ★ 修正部分：コンシェルジュが「ホテルマン」になりきらないように設定を変更
         function getPersonaPrompt() {
             const persona = document.getElementById('ai-persona').value;
             const userName = document.getElementById('nickname-input').value || document.getElementById('realname-input').value || "ご主人様";
-            
             if(persona === 'concierge') return `あなたはユーザー専属のプライベート・コンシェルジュ（優秀なAI執事）です。※ホテルや実在の施設に所属している設定ではありません。常にスマートフォンのアプリ内からユーザーの健康と歩行をサポートする専用のパートナーとして振る舞ってください。ユーザーを「${userName}様」と呼び、非常に洗練されたフォーマルで丁寧な敬語を使用し、プロフェッショナルとして品格のある対応をしてください。`;
             if(persona === 'maid') return `あなたは優しくて丁寧なメイドです。ユーザーを「${userName}」と呼び、献身的に褒めて癒やし、健康を気遣う口調で話してください。語尾は「〜ですね！」「〜ですよ♪」など。`;
             if(persona === 'student') return `あなたはおっとりしていて、少し甘えん坊な女子学生です。ユーザーを「${userName}」と呼び、「〜だねぇ」「〜してほしいな」と慕うように、健康を気遣ってください。`;
@@ -401,7 +399,7 @@
             const balText = document.getElementById('balance-result').innerText;
             const targetSteps = document.getElementById('target-steps-input').value || 8000;
             
-            const prompt = `${getPersonaPrompt()}\n以下のユーザーの今日の健康データを分析し、短く（2〜3文程度で）自然な日本語の話し言葉でアドバイスやリアクションを返してください。マークダウン（**など）や箇条書きは絶対に使わず、そのまま吹き出しに入る文章だけにしてください。\n【今日のデータ】\n・目標歩数: ${targetSteps} 歩\n・現在の歩数: ${steps} 歩\n・運動消費カロリー: ${activeCal} kcal\n・摂取カロリー: ${inCalText} kcal\n・基礎代謝: ${bmrText} kcal\n・カロリー収支: ${balText}`;
+            const prompt = `${getPersonaPrompt()}\n以下のユーザーの今日の健康データを分析し、短く（2〜3文程度で）自然な日本語の話し言葉でアドバイスやリアクションを返してください。マークダウン（**など）や箇条書きは絶対に使わず、そのまま吹き出しに入る文章だけにしてください。\n【今日のデータ】\n・目標歩数: ${targetSteps} 歩\n・現在の歩数: ${steps} 歩\n・運動消費カロリー: ${activeCal} kcal\n・摂取カロリー: ${inCalText} kcal\n・基礎代謝: ${bmrText} kcal\n・カロリーバランス: ${balText}`;
 
             try {
                 const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) });
@@ -446,8 +444,7 @@ ${getPersonaPrompt()}
 
             try {
                 const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } })
                 });
                 if (!response.ok) throw new Error("通信エラー");
@@ -650,24 +647,48 @@ ${getPersonaPrompt()}
             const y_steps = parseFloat(urlParams.get('y_steps')) || 0;
             const hasYesterdayData = urlParams.has('y_steps');
 
+            // ★ フェーズ1：自動保存のバグ修正
             if (hasYesterdayData) {
                 let history = JSON.parse(localStorage.getItem('walkingHistory')) || [];
                 let yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
                 const yesterdayStr = yesterday.toLocaleDateString();
                 
-                let spWeight = 0;
+                let spWeight = 0; let spBmr = 0;
                 try {
                     const savedStr = localStorage.getItem('userProfileV7') || localStorage.getItem('userProfileV6') || localStorage.getItem('userProfileV4') || localStorage.getItem('userProfileV2');
-                    if(savedStr) spWeight = parseFloat(JSON.parse(savedStr).weight) || 0;
+                    if(savedStr) { 
+                        let sp = JSON.parse(savedStr); 
+                        spWeight = parseFloat(sp.weight) || 0; 
+                        spBmr = parseFloat(sp.bmr) || 0; 
+                    }
                 } catch(e) {}
                 
                 const yActiveCal = Math.round(y_steps * spWeight * 0.0005) || 0;
                 const existingIndex = history.findIndex(item => item.date === yesterdayStr);
                 
                 if (existingIndex > -1) {
-                    history[existingIndex].steps = y_steps; history[existingIndex].calories = yActiveCal; history[existingIndex].balance = "自動保存 (歩数連携更新)";
+                    history[existingIndex].steps = y_steps;
+                    history[existingIndex].calories = yActiveCal;
+                    
+                    const tCal = parseFloat(history[existingIndex].inCal) || 0;
+                    const bmr = parseFloat(history[existingIndex].bmr) || spBmr;
+                    if(bmr > 0) {
+                        const bal = tCal - (bmr + yActiveCal);
+                        history[existingIndex].balance = bal > 0 ? `⚠️ +${bal} kcal` : `✨ ${bal} kcal`;
+                    } else {
+                        history[existingIndex].balance = "自動保存 (歩数連携更新)";
+                    }
                 } else {
-                    history.unshift({ date: yesterdayStr, steps: y_steps, weight: spWeight || '--', calories: yActiveCal, bmi: 0, bmr: "自動", inCal: 0, p: 0, f: 0, c: 0, s: 0, balance: "自動保存 (歩数連携のみ)" });
+                    let balStr = "自動保存 (歩数連携のみ)";
+                    if(spBmr > 0) {
+                        const bal = 0 - (spBmr + yActiveCal);
+                        balStr = bal > 0 ? `⚠️ +${bal} kcal` : `✨ ${bal} kcal`;
+                    }
+
+                    history.unshift({
+                        date: yesterdayStr, steps: y_steps, weight: spWeight || '--', calories: yActiveCal,
+                        bmi: 0, bmr: spBmr || "自動", inCal: 0, p: 0, f: 0, c: 0, s: 0, balance: balStr
+                    });
                 }
                 localStorage.setItem('walkingHistory', JSON.stringify(history));
             }
@@ -737,7 +758,7 @@ ${getPersonaPrompt()}
                     const real = document.getElementById('realname-input').value;
                     const nick = document.getElementById('nickname-input').value;
                     let displayName = "あなた"; if (nick) displayName = nick; else if (real) displayName = real;
-                    document.getElementById('app-title').innerHTML = `${displayName}の健康ログ <span class="version-badge">v12.1</span>`;
+                    document.getElementById('app-title').innerHTML = `${displayName}の健康ログ <span class="version-badge">v12.2</span>`;
 
                     const w = parseFloat(document.getElementById('weight-input').value) || 0;
                     const h = parseFloat(document.getElementById('height-input').value) || 0;
@@ -803,12 +824,20 @@ ${getPersonaPrompt()}
                             let yActiveCal = "不明";
                             if (hasYesterdayData) yActiveCal = Math.round(y_steps * (sp.weight||0) * 0.0005) || 0;
                             
+                            // ★ フェーズ1：自動保存のバグ修正
+                            let balStr = hasYesterdayData ? "自動保存 (歩数連携済)" : "食事のみ自動保存";
+                            if (sp.bmr > 0) {
+                                const act = (yActiveCal === "不明") ? 0 : yActiveCal;
+                                const bal = tCal - (sp.bmr + act);
+                                balStr = bal > 0 ? `⚠️ +${bal} kcal` : `✨ ${bal} kcal`;
+                            }
+
                             if(tCal > 0 || hasYesterdayData) {
                                 history.unshift({
                                     date: sp.lastDate, steps: ySteps, weight: sp.weight || '--', calories: yActiveCal,
                                     bmi: sp.height ? (sp.weight / Math.pow(sp.height / 100, 2)).toFixed(1) : 0,
                                     bmr: sp.bmr || "自動", inCal: tCal, p: tP.toFixed(1), f: tF.toFixed(1), c: tC.toFixed(1), s: tS.toFixed(1), 
-                                    balance: hasYesterdayData ? "自動保存 (歩数連携済)" : "食事のみ自動保存"
+                                    balance: balStr
                                 });
                                 localStorage.setItem('walkingHistory', JSON.stringify(history));
                             }
@@ -865,7 +894,7 @@ ${getPersonaPrompt()}
             window.displayHistory = function() {
                 try {
                     let history = JSON.parse(localStorage.getItem('walkingHistory')) || [];
-                    document.getElementById('history-list').innerHTML = history.map(item => `<div class="history-item"><strong style="font-size: 1.1em; color:#2c3e50;">${item.date}</strong><br>🚶‍♂️ ${item.steps !== "不明" ? Number(item.steps).toLocaleString() : "不明"}歩 / 🔥 運動消費: ${item.calories}kcal<br>🍽️ 摂取: ${item.inCal||0}kcal (P:${item.p||0} F:${item.f||0} C:${item.c||0})<br>⚖️ 体重: ${item.weight||'--'}kg / 📈 収支: <strong>${item.balance||'--'}</strong></div>`).join('');
+                    document.getElementById('history-list').innerHTML = history.map(item => `<div class="history-item"><strong style="font-size: 1.1em; color:#2c3e50;">${item.date}</strong><br>🚶‍♂️ ${item.steps !== "不明" ? Number(item.steps).toLocaleString() : "不明"}歩 / 🔥 運動消費: ${item.calories}kcal<br>🍽️ 摂取: ${item.inCal||0}kcal (P:${item.p||0} F:${item.f||0} C:${item.c||0})<br>⚖️ 体重: ${item.weight||'--'}kg / 📈 バランス: <strong>${item.balance||'--'}</strong></div>`).join('');
                 } catch(e) {}
             };
             displayHistory(); renderGraph();
