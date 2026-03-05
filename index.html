@@ -148,7 +148,7 @@
 
         <div id="tab-walk" class="main-tab-content active">
             <div class="card">
-                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v12.6</span></h1>
+                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v12.7</span></h1>
                 <div id="wake-lock-status" class="status-off">スリープ防止：OFF (画面タップ)</div>
                 
                 <div style="background: #f0f4f8; padding: 10px; border-radius: 10px; margin-bottom: 15px;">
@@ -435,6 +435,7 @@
             if(val === 'trainer') imgElem.src = 'avatar5.png';
         };
 
+        // ★ Phase 5: プロンプトチューニング（トレーナーの呼び方を「〇〇君」に変更）
         function getPersonaPrompt() {
             const persona = document.getElementById('ai-persona').value;
             const userName = document.getElementById('nickname-input').value || document.getElementById('realname-input').value || "ご主人様";
@@ -444,7 +445,8 @@
             if(persona === 'jiraikei') return `あなたはツンデレで地雷系の女の子です。ユーザーを「${userName}」と呼び、素直になれず強気ですが、実は誰よりも健康を心配している口調で。「〜しなさいよね！」など。`;
             if(persona === 'secretary') return `あなたは冷静沈着で優秀な女性秘書です。ユーザーを「${userName}」と呼び、論理的な分析と的確なアドバイスを、丁寧な敬語で。「〜ですね。」「〜を推奨いたします。」など。`;
             if(persona === 'ol') return `あなたは母性本能が強く、包容力のある女性の幼馴染（OL）です。ユーザーを「${userName}」と呼び、母親やお姉さんのように全てを包み込んで褒め、優しく健康をサポート。「えらいえらい！」など。`;
-            if(persona === 'trainer') return `あなたは明るく元気で、体育会系な女性のフィットネスコーチです。ユーザーを「${userName}」と呼び、モチベーションが爆発するようにポジティブに応援。「さすがです！」「ファイトです！」など。`;
+            // 変更点：ユーザーを「${userName}君」と呼び...
+            if(persona === 'trainer') return `あなたは明るく元気で、体育会系な女性のフィットネスコーチです。ユーザーを「${userName}君」と呼び、モチベーションが爆発するようにポジティブに応援。「さすがです！」「ファイトです！」など。`;
             return `あなたはAIコンシェルジュです。ユーザーを「${userName}」と呼び、親切にサポートしてください。`;
         }
 
@@ -639,6 +641,7 @@ ${getPersonaPrompt()}
             if (foodDatabase[foodName]) {
                 const result = foodDatabase[foodName];
                 addNutritionToMeal(mealType, result, foodName);
+                alert(`✨ 記憶から「${foodName}」を追加しました！\nカロリー: ${result.kcal} kcal`);
                 inputElem.value = "";
                 return;
             }
@@ -675,6 +678,7 @@ ${getPersonaPrompt()}
                 updateFoodDatalist();
 
                 addNutritionToMeal(mealType, safeResult, foodName);
+                alert(`🔍 AIが「${foodName}」の栄養素を推測し、追加・記憶しました！\n\n【追加分】\nカロリー: ${safeResult.kcal} kcal\nP: ${safeResult.p} g / F: ${safeResult.f} g / C: ${safeResult.c} g`);
             } catch (err) {
                 alert("AIの検索に失敗しました。\n詳細: " + err.message);
             } finally {
@@ -717,6 +721,7 @@ ${getPersonaPrompt()}
 
                 const safeResult = { kcal: parseFloat(result.kcal)||0, p: parseFloat(result.p)||0, f: parseFloat(result.f)||0, c: parseFloat(result.c)||0, s: parseFloat(result.s)||0 };
                 addNutritionToMeal(mealType, safeResult, "📷 スキャンした食品");
+                alert(`📸 成分表を読み取り、追加しました！\nカロリー: ${safeResult.kcal} kcal`);
             } catch (err) {
                 alert("画像の解析に失敗しました。\n詳細: " + err.message);
             } finally {
@@ -729,7 +734,7 @@ ${getPersonaPrompt()}
                 const real = document.getElementById('realname-input').value;
                 const nick = document.getElementById('nickname-input').value;
                 let displayName = "あなた"; if (nick) displayName = nick; else if (real) displayName = real;
-                document.getElementById('app-title').innerHTML = `${displayName}の健康ログ <span class="version-badge">v12.6</span>`;
+                document.getElementById('app-title').innerHTML = `${displayName}の健康ログ <span class="version-badge">v12.7</span>`;
 
                 const w = parseFloat(document.getElementById('weight-input').value) || 0;
                 const h = parseFloat(document.getElementById('height-input').value) || 0;
@@ -778,7 +783,6 @@ ${getPersonaPrompt()}
                 else if (balance < -500) { balDiv.innerHTML = `⚠️ ${balance} kcal (食べなさすぎ!)`; balDiv.className = "balance-result result-bad"; }
                 else { balDiv.innerHTML = `✨ ${balance > 0 ? '＋'+balance : balance} kcal (超適正ペース!)`; balDiv.className = "balance-result result-good"; }
 
-                // ★ フェーズ4：目標モードと体重からPFCと目標カロリーを計算してバーを動かす
                 let targetP = 0, targetF = 0, targetC = 0, targetCal = 0;
                 if (w > 0 && bmr > 0) {
                     const currentTdee = bmr + activeCal;
