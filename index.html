@@ -99,6 +99,11 @@
         .food-input-row { display: flex; gap: 5px; margin-bottom: 5px; }
         .food-input-row input { flex: 1; font-size: 0.9em; }
         .food-input-row button { width: auto; margin-top: 0; padding: 8px 12px; background: #27ae60; font-size: 0.85em; }
+
+        /* ★ フェーズ3：食事ログのスタイル追加 */
+        .food-log-container { margin-top: 10px; display: flex; flex-direction: column; gap: 5px; }
+        .food-log-item { display: flex; justify-content: space-between; align-items: center; background: #fff; border: 1px solid #ddd; padding: 6px 10px; border-radius: 5px; font-size: 0.85em; }
+        .food-log-item button { background: #e74c3c; color: white; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -138,7 +143,7 @@
 
         <div id="tab-walk" class="main-tab-content active">
             <div class="card">
-                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v12.4</span></h1>
+                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v12.5</span></h1>
                 <div id="wake-lock-status" class="status-off">スリープ防止：OFF (画面タップ)</div>
                 
                 <div style="background: #f0f4f8; padding: 10px; border-radius: 10px; margin-bottom: 15px;">
@@ -252,6 +257,7 @@
                         <input type="file" id="bf-file" accept="image/*" capture="environment" style="display:none;" onchange="handleImageUpload('bf', this)">
                         <button class="action-btn ai-scan-btn" onclick="document.getElementById('bf-file').click()">📷 成分表を写真でスキャン</button>
                     </div>
+                    <div id="bf-log" class="food-log-container"></div>
                     <div class="meal-grid"><div>Kcal</div><div>P(g)</div><div>F(g)</div><div>C(g)</div><div>塩(g)</div><input type="number" id="bf-cal" oninput="calcAll()"><input type="number" id="bf-p" oninput="calcAll()"><input type="number" id="bf-f" oninput="calcAll()"><input type="number" id="bf-c" oninput="calcAll()"><input type="number" id="bf-s" oninput="calcAll()"></div>
                 </details>
 
@@ -265,6 +271,7 @@
                         <input type="file" id="lu-file" accept="image/*" capture="environment" style="display:none;" onchange="handleImageUpload('lu', this)">
                         <button class="action-btn ai-scan-btn" onclick="document.getElementById('lu-file').click()">📷 成分表を写真でスキャン</button>
                     </div>
+                    <div id="lu-log" class="food-log-container"></div>
                     <div class="meal-grid"><div>Kcal</div><div>P(g)</div><div>F(g)</div><div>C(g)</div><div>塩(g)</div><input type="number" id="lu-cal" oninput="calcAll()"><input type="number" id="lu-p" oninput="calcAll()"><input type="number" id="lu-f" oninput="calcAll()"><input type="number" id="lu-c" oninput="calcAll()"><input type="number" id="lu-s" oninput="calcAll()"></div>
                 </details>
 
@@ -278,6 +285,7 @@
                         <input type="file" id="dn-file" accept="image/*" capture="environment" style="display:none;" onchange="handleImageUpload('dn', this)">
                         <button class="action-btn ai-scan-btn" onclick="document.getElementById('dn-file').click()">📷 成分表を写真でスキャン</button>
                     </div>
+                    <div id="dn-log" class="food-log-container"></div>
                     <div class="meal-grid"><div>Kcal</div><div>P(g)</div><div>F(g)</div><div>C(g)</div><div>塩(g)</div><input type="number" id="dn-cal" oninput="calcAll()"><input type="number" id="dn-p" oninput="calcAll()"><input type="number" id="dn-f" oninput="calcAll()"><input type="number" id="dn-c" oninput="calcAll()"><input type="number" id="dn-s" oninput="calcAll()"></div>
                 </details>
 
@@ -291,6 +299,7 @@
                         <input type="file" id="sn-file" accept="image/*" capture="environment" style="display:none;" onchange="handleImageUpload('sn', this)">
                         <button class="action-btn ai-scan-btn" onclick="document.getElementById('sn-file').click()">📷 成分表を写真でスキャン</button>
                     </div>
+                    <div id="sn-log" class="food-log-container"></div>
                     <div class="meal-grid"><div>Kcal</div><div>P(g)</div><div>F(g)</div><div>C(g)</div><div>塩(g)</div><input type="number" id="sn-cal" oninput="calcAll()"><input type="number" id="sn-p" oninput="calcAll()"><input type="number" id="sn-f" oninput="calcAll()"><input type="number" id="sn-c" oninput="calcAll()"><input type="number" id="sn-s" oninput="calcAll()"></div>
                 </details>
 
@@ -344,7 +353,10 @@
         let destMarker = null; let waypointMarker = null; let isWaypointMode = false; 
         let currentLat = 35.6812; let currentLng = 139.7671; let isTrackingMode = true; 
 
+        // AIの知識辞書
         let foodDatabase = {};
+        // ★ フェーズ3：今日のお皿（リスト）を保持する変数
+        let todayFoodLogs = { bf: [], lu: [], dn: [], sn: [] };
 
         function fixPastHistoryData() {
             let history = JSON.parse(localStorage.getItem('walkingHistory')) || [];
@@ -537,6 +549,69 @@ ${getPersonaPrompt()}
             }
         };
 
+        // ★ フェーズ3：リストの描画関数
+        window.renderFoodLogs = function(mealType) {
+            const container = document.getElementById(mealType + '-log');
+            if(!container) return;
+            container.innerHTML = '';
+            todayFoodLogs[mealType].forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'food-log-item';
+                div.innerHTML = `
+                    <span style="flex:1;"><strong>${item.name}</strong><br><small>${item.kcal}kcal / P:${item.p} F:${item.f} C:${item.c}</small></span>
+                    <button onclick="removeFoodItem('${mealType}', ${item.id})">✖ 削除</button>
+                `;
+                container.appendChild(div);
+            });
+        };
+
+        // ★ フェーズ3：リストから削除し、数値を引き算する関数
+        window.removeFoodItem = function(mealType, id) {
+            const idx = todayFoodLogs[mealType].findIndex(item => item.id === id);
+            if(idx > -1) {
+                const item = todayFoodLogs[mealType][idx];
+                todayFoodLogs[mealType].splice(idx, 1); // リストから削除
+                
+                // 現在の合計値から引き算する（0未満にはならないように制御）
+                const cCal = parseFloat(document.getElementById(mealType+'-cal').value) || 0;
+                const cP = parseFloat(document.getElementById(mealType+'-p').value) || 0;
+                const cF = parseFloat(document.getElementById(mealType+'-f').value) || 0;
+                const cC = parseFloat(document.getElementById(mealType+'-c').value) || 0;
+                const cS = parseFloat(document.getElementById(mealType+'-s').value) || 0;
+
+                document.getElementById(mealType+'-cal').value = Math.max(0, cCal - item.kcal);
+                document.getElementById(mealType+'-p').value = Math.max(0, cP - item.p).toFixed(1);
+                document.getElementById(mealType+'-f').value = Math.max(0, cF - item.f).toFixed(1);
+                document.getElementById(mealType+'-c').value = Math.max(0, cC - item.c).toFixed(1);
+                document.getElementById(mealType+'-s').value = Math.max(0, cS - item.s).toFixed(1);
+                
+                calcAll(); // 全体の再計算をトリガー
+                renderFoodLogs(mealType); // リストを再描画
+            }
+        };
+
+        // ★ フェーズ3：追加時に名前を受け取り、リスト(todayFoodLogs)に保存するように拡張
+        window.addNutritionToMeal = function(mealType, resultObj, foodName = "手動追加アイテム") {
+            // お皿（リスト）に追加
+            const logItem = { id: Date.now(), name: foodName, ...resultObj };
+            todayFoodLogs[mealType].push(logItem);
+            renderFoodLogs(mealType);
+
+            // 合計値の加算
+            const currentKcal = parseFloat(document.getElementById(mealType + '-cal').value) || 0;
+            const currentP = parseFloat(document.getElementById(mealType + '-p').value) || 0;
+            const currentF = parseFloat(document.getElementById(mealType + '-f').value) || 0;
+            const currentC = parseFloat(document.getElementById(mealType + '-c').value) || 0;
+            const currentS = parseFloat(document.getElementById(mealType + '-s').value) || 0;
+
+            document.getElementById(mealType + '-cal').value = currentKcal + (resultObj.kcal || 0);
+            document.getElementById(mealType + '-p').value = (currentP + (resultObj.p || 0)).toFixed(1);
+            document.getElementById(mealType + '-f').value = (currentF + (resultObj.f || 0)).toFixed(1);
+            document.getElementById(mealType + '-c').value = (currentC + (resultObj.c || 0)).toFixed(1);
+            document.getElementById(mealType + '-s').value = (currentS + (resultObj.s || 0)).toFixed(1);
+            calcAll();
+        };
+
         window.handleTextFood = async function(mealType) {
             const inputElem = document.getElementById(mealType + '-food-text');
             const foodName = inputElem.value.trim();
@@ -546,7 +621,7 @@ ${getPersonaPrompt()}
             
             if (foodDatabase[foodName]) {
                 const result = foodDatabase[foodName];
-                addNutritionToMeal(mealType, result);
+                addNutritionToMeal(mealType, result, foodName);
                 alert(`✨ 記憶から「${foodName}」を追加しました！\nカロリー: ${result.kcal} kcal`);
                 inputElem.value = "";
                 return;
@@ -579,11 +654,15 @@ ${getPersonaPrompt()}
                 const result = JSON.parse(textResult);
 
                 const safeResult = { kcal: parseFloat(result.kcal)||0, p: parseFloat(result.p)||0, f: parseFloat(result.f)||0, c: parseFloat(result.c)||0, s: parseFloat(result.s)||0 };
+                
+                // 辞書に記憶させる
                 foodDatabase[foodName] = safeResult;
                 localStorage.setItem('foodDatabase', JSON.stringify(foodDatabase));
                 updateFoodDatalist();
 
-                addNutritionToMeal(mealType, safeResult);
+                // リストと合計に追加する
+                addNutritionToMeal(mealType, safeResult, foodName);
+                
                 alert(`🔍 AIが「${foodName}」の栄養素を推測し、追加・記憶しました！\n\n【追加分】\nカロリー: ${safeResult.kcal} kcal\nP: ${safeResult.p} g / F: ${safeResult.f} g / C: ${safeResult.c} g`);
             } catch (err) {
                 alert("AIの検索に失敗しました。\n詳細: " + err.message);
@@ -626,47 +705,16 @@ ${getPersonaPrompt()}
                 const result = JSON.parse(textResult);
 
                 const safeResult = { kcal: parseFloat(result.kcal)||0, p: parseFloat(result.p)||0, f: parseFloat(result.f)||0, c: parseFloat(result.c)||0, s: parseFloat(result.s)||0 };
-                addNutritionToMeal(mealType, safeResult);
+                
+                // 画像スキャンの場合は専用の名前でリストに追加
+                addNutritionToMeal(mealType, safeResult, "📷 スキャンした食品");
+                
                 alert(`📸 成分表を読み取り、追加しました！\nカロリー: ${safeResult.kcal} kcal`);
             } catch (err) {
                 alert("画像の解析に失敗しました。\n詳細: " + err.message);
             } finally {
                 btn.innerText = originalText; btn.disabled = false; inputElem.value = ""; 
             }
-        };
-
-        window.addNutritionToMeal = function(mealType, resultObj) {
-            const currentKcal = parseFloat(document.getElementById(mealType + '-cal').value) || 0;
-            const currentP = parseFloat(document.getElementById(mealType + '-p').value) || 0;
-            const currentF = parseFloat(document.getElementById(mealType + '-f').value) || 0;
-            const currentC = parseFloat(document.getElementById(mealType + '-c').value) || 0;
-            const currentS = parseFloat(document.getElementById(mealType + '-s').value) || 0;
-
-            document.getElementById(mealType + '-cal').value = currentKcal + (resultObj.kcal || 0);
-            document.getElementById(mealType + '-p').value = (currentP + (resultObj.p || 0)).toFixed(1);
-            document.getElementById(mealType + '-f').value = (currentF + (resultObj.f || 0)).toFixed(1);
-            document.getElementById(mealType + '-c').value = (currentC + (resultObj.c || 0)).toFixed(1);
-            document.getElementById(mealType + '-s').value = (currentS + (resultObj.s || 0)).toFixed(1);
-            calcAll();
-        };
-
-        window.centerMap = function() { if (window.map && currentLat && currentLng) { isTrackingMode = true; window.map.setView([currentLat, currentLng], 18); } };
-
-        window.enableWaypointMode = function() {
-            const mode = document.querySelector('input[name="route-mode"]:checked').value;
-            if (mode !== 'dest') { alert("中継地を追加するには、まず「📍 目的地モード」を選んでください！"); return; }
-            isWaypointMode = true;
-            document.getElementById('dest-hint').innerHTML = "地図を直接タップして、<span style='color:#27ae60;'>中継地（緑のピン）</span>を立ててください。";
-            if (isFullscreen) alert("🟢 中継地追加モードです。\n地図をタップして緑のピンを立ててください！");
-        };
-
-        window.clearMap = function() {
-            if (destMarker) { window.map.removeLayer(destMarker); destMarker = null; }
-            if (waypointMarker) { window.map.removeLayer(waypointMarker); waypointMarker = null; }
-            if (window.goalPath) window.goalPath.setLatLngs([]);
-            isWaypointMode = false;
-            const mode = document.querySelector('input[name="route-mode"]:checked').value;
-            if (mode === 'dest') document.getElementById('dest-hint').innerHTML = "地図を直接タップして、<span style='color:#e74c3c;'>目的地（赤いピン）</span>を立ててください。";
         };
 
         window.onload = function() {
@@ -739,17 +787,6 @@ ${getPersonaPrompt()}
                 updateFoodDatalist();
             } catch(e) {}
 
-            // ★ フェーズ2：目標モードの記憶を呼び出してセットする
-            try {
-                const savedStr = localStorage.getItem('userProfileV7') || localStorage.getItem('userProfileV6');
-                if(savedStr) {
-                    const sp = JSON.parse(savedStr);
-                    if (sp.goalMode) {
-                        document.getElementById('goal-mode').value = sp.goalMode;
-                    }
-                }
-            } catch(e){}
-
             window.switchMainTab = function(tabName) {
                 document.querySelectorAll('.main-tab-content').forEach(el => el.classList.remove('active'));
                 document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
@@ -798,15 +835,13 @@ ${getPersonaPrompt()}
                     const real = document.getElementById('realname-input').value;
                     const nick = document.getElementById('nickname-input').value;
                     let displayName = "あなた"; if (nick) displayName = nick; else if (real) displayName = real;
-                    document.getElementById('app-title').innerHTML = `${displayName}の健康ログ <span class="version-badge">v12.4</span>`;
+                    document.getElementById('app-title').innerHTML = `${displayName}の健康ログ <span class="version-badge">v12.5</span>`;
 
                     const w = parseFloat(document.getElementById('weight-input').value) || 0;
                     const h = parseFloat(document.getElementById('height-input').value) || 0;
                     const g = document.getElementById('gender-input').value;
                     const dobStr = document.getElementById('dob-input').value;
                     const targetSteps = parseFloat(document.getElementById('target-steps-input').value) || 8000;
-                    
-                    // ★ フェーズ2：現在選ばれている目標モードを取得
                     const goalMode = document.getElementById('goal-mode').value;
                     
                     let a = 0;
@@ -846,8 +881,8 @@ ${getPersonaPrompt()}
                     const cm = { bf: [getVal('bf-cal'), getVal('bf-p'), getVal('bf-f'), getVal('bf-c'), getVal('bf-s')], lu: [getVal('lu-cal'), getVal('lu-p'), getVal('lu-f'), getVal('lu-c'), getVal('lu-s')], dn: [getVal('dn-cal'), getVal('dn-p'), getVal('dn-f'), getVal('dn-c'), getVal('dn-s')], sn: [getVal('sn-cal'), getVal('sn-p'), getVal('sn-f'), getVal('sn-c'), getVal('sn-s')] };
                     const todayStr = new Date().toLocaleDateString();
                     
-                    // ★ フェーズ2：goalMode を localStorage に保存するよう追加
-                    localStorage.setItem('userProfileV7', JSON.stringify({realname: real, nickname: nick, weight: w, height: h, dob: dobStr, gender: g, targetSteps: targetSteps, goalMode: goalMode, meals: cm, lastDate: todayStr, bmr: bmr}));
+                    // ★ フェーズ3：todayLogs を localStorage に保存するよう追加
+                    localStorage.setItem('userProfileV7', JSON.stringify({realname: real, nickname: nick, weight: w, height: h, dob: dobStr, gender: g, targetSteps: targetSteps, goalMode: goalMode, meals: cm, todayLogs: todayFoodLogs, lastDate: todayStr, bmr: bmr}));
                 } catch(e) {}
             };
 
@@ -887,7 +922,9 @@ ${getPersonaPrompt()}
                                 localStorage.setItem('walkingHistory', JSON.stringify(history));
                             }
                         }
+                        // ★ フェーズ3：日付が変わったら、入力欄だけでなく「お皿（リスト）」も綺麗にリセットする
                         sp.meals = { bf: [], lu: [], dn: [], sn: [] };
+                        sp.todayLogs = { bf: [], lu: [], dn: [], sn: [] };
                     }
                     
                     sp.lastDate = todayStr;
@@ -900,10 +937,17 @@ ${getPersonaPrompt()}
                     if (sp.gender) document.getElementById('gender-input').value = sp.gender;
                     if (sp.dob) document.getElementById('dob-input').value = sp.dob;
                     if (sp.targetSteps) document.getElementById('target-steps-input').value = sp.targetSteps;
+                    if (sp.goalMode) document.getElementById('goal-mode').value = sp.goalMode;
                     
                     if (sp.meals) {
                         const sv = (p, a) => { document.getElementById(p+'-cal').value = a[0]||''; document.getElementById(p+'-p').value = a[1]||''; document.getElementById(p+'-f').value = a[2]||''; document.getElementById(p+'-c').value = a[3]||''; document.getElementById(p+'-s').value = a[4]||''; };
                         if(sp.meals.bf) sv('bf', sp.meals.bf); if(sp.meals.lu) sv('lu', sp.meals.lu); if(sp.meals.dn) sv('dn', sp.meals.dn); if(sp.meals.sn) sv('sn', sp.meals.sn);
+                    }
+                    
+                    // ★ フェーズ3：アプリ起動時に、今日食べたリストを復元して画面に描画する
+                    if (sp.todayLogs) {
+                        todayFoodLogs = sp.todayLogs;
+                        renderFoodLogs('bf'); renderFoodLogs('lu'); renderFoodLogs('dn'); renderFoodLogs('sn');
                     }
                 }
             } catch(e) {}
