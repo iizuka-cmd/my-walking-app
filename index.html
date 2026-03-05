@@ -148,7 +148,7 @@
 
         <div id="tab-walk" class="main-tab-content active">
             <div class="card">
-                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v13.1</span></h1>
+                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v13.2</span></h1>
                 <div id="wake-lock-status" class="status-off">スリープ防止：OFF (画面タップ)</div>
                 
                 <div style="background: #f0f4f8; padding: 10px; border-radius: 10px; margin-bottom: 15px;">
@@ -418,7 +418,6 @@
             return `あなたはAIコンシェルジュです。ユーザーを「${userName}」と呼び、親切にサポートしてください。`;
         }
 
-        // ★ AIアドバイスの強化と安全対策（エラーを完全にキャッチする）
         window.getAiAdvice = async function() {
             const msgBox = document.getElementById('ai-message');
             const btn = document.getElementById('ai-btn');
@@ -429,7 +428,6 @@
             btn.disabled = true;
             msgBox.innerHTML = '<span class="ai-typing">データを分析して考えています...💭</span>';
 
-            // 万が一データが空でもエラーで止まらないように安全取得
             const bmrText = document.getElementById('bmr-display').innerText || "0";
             const inCalText = document.getElementById('total-kcal').innerText || "0";
             const balText = document.getElementById('balance-result').innerText || "不明";
@@ -445,23 +443,16 @@
 【今日のデータ】\n・目標歩数: ${targetSteps} 歩\n・現在の歩数: ${steps} 歩\n・運動消費カロリー: ${activeCal} kcal\n・摂取カロリー: ${inCalText} kcal\n・基礎代謝: ${bmrText} kcal\n・カロリーバランス: ${balText}`;
 
             try {
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`, { 
-                    method: 'POST', 
-                    headers: { 'Content-Type': 'application/json' }, 
-                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) 
-                });
-                
-                if (!response.ok) throw new Error("API通信エラー");
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) });
+                if (!response.ok) throw new Error("通信エラー");
                 const data = await response.json();
                 
-                // 万が一Geminiが安全基準ブロック等で空の返答をよこした場合の対策
                 if(data.candidates && data.candidates[0].content && data.candidates[0].content.parts[0]) {
                     msgBox.innerText = data.candidates[0].content.parts[0].text.replace(/\*/g, ''); 
                 } else {
-                    msgBox.innerText = "ごめんなさい、AIが回答を生成できませんでした（安全基準等によるブロックの可能性があります）。";
+                    msgBox.innerText = "ごめんなさい、うまく回答を生成できませんでした。";
                 }
             } catch (err) {
-                console.error("AI Error:", err);
                 msgBox.innerText = "ごめんなさい、うまく考えがまとまりませんでした。通信状況を確認してください！";
             } finally {
                 btn.disabled = false;
@@ -505,7 +496,7 @@ ${getPersonaPrompt()}
                 if (!response.ok) throw new Error("通信エラー");
                 const data = await response.json();
                 
-                if(!data.candidates || !data.candidates[0].content) throw new Error("AIが空の応答を返しました");
+                if(!data.candidates || !data.candidates[0].content) throw new Error("APIレスポンス空");
                 
                 let textResult = data.candidates[0].content.parts[0].text;
                 const match = textResult.match(/\{[\s\S]*\}/);
@@ -543,7 +534,6 @@ ${getPersonaPrompt()}
                     }
                 }
             } catch (err) {
-                console.error("Chat Error:", err);
                 msgBox.innerText = "ごめんなさい、うまく理解できませんでした。通信状況を確認してください！";
             } finally {
                 inputElem.disabled = false; btn.disabled = false; inputElem.value = "";
@@ -775,7 +765,6 @@ ${getPersonaPrompt()}
             } catch(e) {}
 
             try {
-                // UI構築前に設定を読み込む（目標モード等の初期化用）
                 const savedStr = localStorage.getItem('userProfileV7');
                 if(savedStr) {
                     const sp = JSON.parse(savedStr);
@@ -826,13 +815,12 @@ ${getPersonaPrompt()}
                 document.getElementById('steps-display').innerText = steps.toLocaleString();
             } catch(e) {}
 
-            // ★ 超安定化：計算エラーを絶対に防ぐ安全設計の calcAll
             window.calcAll = function() {
                 try {
                     const real = document.getElementById('realname-input').value;
                     const nick = document.getElementById('nickname-input').value;
                     let displayName = "あなた"; if (nick) displayName = nick; else if (real) displayName = real;
-                    document.getElementById('app-title').innerHTML = `${displayName}の健康ログ <span class="version-badge">v13.1</span>`;
+                    document.getElementById('app-title').innerHTML = `${displayName}の健康ログ <span class="version-badge">v13.2</span>`;
 
                     const w = parseFloat(document.getElementById('weight-input').value) || 0;
                     const h = parseFloat(document.getElementById('height-input').value) || 0;
@@ -849,18 +837,13 @@ ${getPersonaPrompt()}
                         document.getElementById('calc-age').innerText = a;
                     }
 
-                    // BMI計算 (安全処理)
                     let bmi = 0; if (h > 0 && w > 0) bmi = (w / Math.pow(h / 100, 2)).toFixed(1);
                     document.getElementById('bmi-display').innerText = bmi || "0.0";
                     
-                    // 基礎代謝計算 (年齢や身長が未入力でも、体重があればザックリ計算してエラーを回避する)
                     let baseBmr = 0;
                     if (w > 0) {
-                        if (h > 0 && a > 0) {
-                            baseBmr = (g === 'male') ? (10*w + 6.25*h - 5*a + 5) : (10*w + 6.25*h - 5*a - 161);
-                        } else {
-                            baseBmr = w * 22; // 身長・年齢がない場合の仮の基礎代謝
-                        }
+                        if (h > 0 && a > 0) baseBmr = (g === 'male') ? (10*w + 6.25*h - 5*a + 5) : (10*w + 6.25*h - 5*a - 161);
+                        else baseBmr = w * 22; 
                     }
                     const bmr = Math.max(0, Math.round(baseBmr));
                     document.getElementById('bmr-display').innerText = bmr;
@@ -887,7 +870,6 @@ ${getPersonaPrompt()}
                     else if (balance < -500) { balDiv.innerHTML = `⚠️ ${balance} kcal (食べなさすぎ!)`; balDiv.className = "balance-result result-bad"; }
                     else { balDiv.innerHTML = `✨ ${balance > 0 ? '＋'+balance : balance} kcal (超適正ペース!)`; balDiv.className = "balance-result result-good"; }
 
-                    // PFC目標バーの計算と描画（BMRが0でもUIを安全に更新）
                     let targetP = 0, targetF = 0, targetC = 0, targetCal = 0;
                     if (w > 0) {
                         const currentTdee = bmr + activeCal;
@@ -907,12 +889,8 @@ ${getPersonaPrompt()}
 
                     const cm = { bf: [getVal('bf-cal'), getVal('bf-p'), getVal('bf-f'), getVal('bf-c'), getVal('bf-s')], lu: [getVal('lu-cal'), getVal('lu-p'), getVal('lu-f'), getVal('lu-c'), getVal('lu-s')], dn: [getVal('dn-cal'), getVal('dn-p'), getVal('dn-f'), getVal('dn-c'), getVal('dn-s')], sn: [getVal('sn-cal'), getVal('sn-p'), getVal('sn-f'), getVal('sn-c'), getVal('sn-s')] };
                     const todayStr = new Date().toLocaleDateString();
-                    
-                    // 目標モードも一緒に確実に保存する
                     localStorage.setItem('userProfileV7', JSON.stringify({realname: real, nickname: nick, weight: w, height: h, dob: dobStr, gender: g, targetSteps: targetSteps, goalMode: goalMode, meals: cm, todayLogs: todayFoodLogs, lastDate: todayStr, bmr: bmr}));
-                } catch(e) {
-                    console.error("UI計算中にエラーが発生しました:", e);
-                }
+                } catch(e) { console.error(e); }
             };
 
             try {
