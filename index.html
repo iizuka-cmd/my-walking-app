@@ -138,7 +138,7 @@
 
         <div id="tab-walk" class="main-tab-content active">
             <div class="card">
-                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v12.2</span></h1>
+                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v12.3</span></h1>
                 <div id="wake-lock-status" class="status-off">スリープ防止：OFF (画面タップ)</div>
                 
                 <div style="background: #f0f4f8; padding: 10px; border-radius: 10px; margin-bottom: 15px;">
@@ -328,27 +328,45 @@
         window.currentGraphMode = 'weight';
         let isFullscreen = false;
         
-        let destMarker = null;
-        let waypointMarker = null; 
-        let isWaypointMode = false; 
-
-        let currentLat = 35.6812; 
-        let currentLng = 139.7671;
-        let isTrackingMode = true; 
+        let destMarker = null; let waypointMarker = null; let isWaypointMode = false; 
+        let currentLat = 35.6812; let currentLng = 139.7671; let isTrackingMode = true; 
 
         let foodDatabase = {};
+
+        // ★ 過去のデータ修復（マイグレーション）処理
+        function fixPastHistoryData() {
+            let history = JSON.parse(localStorage.getItem('walkingHistory')) || [];
+            let isFixed = false;
+            
+            history.forEach(item => {
+                // 自動保存の文字が残っていたり、カンマの影響で計算が狂っているデータ（-1500kcal以下など）を再計算
+                const inCalNum = parseFloat(String(item.inCal).replace(/,/g, '')) || 0;
+                const bmrNum = parseFloat(String(item.bmr).replace(/,/g, '')) || 0;
+                const actCalNum = parseFloat(String(item.calories).replace(/,/g, '')) || 0;
+                
+                if (bmrNum > 0) {
+                    const trueBal = inCalNum - (bmrNum + actCalNum);
+                    const trueBalStr = trueBal > 0 ? `⚠️ +${trueBal} kcal` : `✨ ${trueBal} kcal`;
+                    
+                    if (item.balance !== trueBalStr) {
+                        item.balance = trueBalStr;
+                        isFixed = true;
+                    }
+                }
+            });
+            
+            if (isFixed) {
+                localStorage.setItem('walkingHistory', JSON.stringify(history));
+            }
+        }
 
         window.toggleConcierge = function() {
             const content = document.getElementById('concierge-content');
             const btn = document.getElementById('concierge-toggle-btn');
             if (content.style.display === 'none') {
-                content.style.display = 'flex';
-                btn.innerText = "▲ コンシェルジュを隠す";
-                localStorage.setItem('hideConcierge', 'false');
+                content.style.display = 'flex'; btn.innerText = "▲ コンシェルジュを隠す"; localStorage.setItem('hideConcierge', 'false');
             } else {
-                content.style.display = 'none';
-                btn.innerText = "▼ コンシェルジュを表示";
-                localStorage.setItem('hideConcierge', 'true');
+                content.style.display = 'none'; btn.innerText = "▼ コンシェルジュを表示"; localStorage.setItem('hideConcierge', 'true');
             }
         };
 
@@ -593,8 +611,7 @@ ${getPersonaPrompt()}
 
                 const data = await response.json();
                 let textResult = data.candidates[0].content.parts[0].text;
-                const match = textResult.match(/\{[\s\S]*\}/);
-                if(match) textResult = match[0];
+                const match = textResult.match(/\{[\s\S]*\}/); if(match) textResult = match[0];
                 const result = JSON.parse(textResult);
 
                 const safeResult = { kcal: parseFloat(result.kcal)||0, p: parseFloat(result.p)||0, f: parseFloat(result.f)||0, c: parseFloat(result.c)||0, s: parseFloat(result.s)||0 };
@@ -642,12 +659,14 @@ ${getPersonaPrompt()}
         };
 
         window.onload = function() {
+            // ★ フェーズ1.1：起動時に過去の「自動保存」「計算狂い」の履歴を全修復する！
+            fixPastHistoryData();
+
             const urlParams = new URLSearchParams(window.location.search);
             steps = parseFloat(urlParams.get('steps')) || 0; 
             const y_steps = parseFloat(urlParams.get('y_steps')) || 0;
             const hasYesterdayData = urlParams.has('y_steps');
 
-            // ★ フェーズ1：自動保存のバグ修正
             if (hasYesterdayData) {
                 let history = JSON.parse(localStorage.getItem('walkingHistory')) || [];
                 let yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
@@ -670,8 +689,9 @@ ${getPersonaPrompt()}
                     history[existingIndex].steps = y_steps;
                     history[existingIndex].calories = yActiveCal;
                     
-                    const tCal = parseFloat(history[existingIndex].inCal) || 0;
-                    const bmr = parseFloat(history[existingIndex].bmr) || spBmr;
+                    // ★ 修正：カンマを確実に除去してからパースする
+                    const tCal = parseFloat(String(history[existingIndex].inCal).replace(/,/g, '')) || 0;
+                    const bmr = parseFloat(String(history[existingIndex].bmr).replace(/,/g, '')) || spBmr;
                     if(bmr > 0) {
                         const bal = tCal - (bmr + yActiveCal);
                         history[existingIndex].balance = bal > 0 ? `⚠️ +${bal} kcal` : `✨ ${bal} kcal`;
@@ -758,7 +778,7 @@ ${getPersonaPrompt()}
                     const real = document.getElementById('realname-input').value;
                     const nick = document.getElementById('nickname-input').value;
                     let displayName = "あなた"; if (nick) displayName = nick; else if (real) displayName = real;
-                    document.getElementById('app-title').innerHTML = `${displayName}の健康ログ <span class="version-badge">v12.2</span>`;
+                    document.getElementById('app-title').innerHTML = `${displayName}の健康ログ <span class="version-badge">v12.3</span>`;
 
                     const w = parseFloat(document.getElementById('weight-input').value) || 0;
                     const h = parseFloat(document.getElementById('height-input').value) || 0;
@@ -824,11 +844,12 @@ ${getPersonaPrompt()}
                             let yActiveCal = "不明";
                             if (hasYesterdayData) yActiveCal = Math.round(y_steps * (sp.weight||0) * 0.0005) || 0;
                             
-                            // ★ フェーズ1：自動保存のバグ修正
+                            // ★ フェーズ1.1：日付変更の保存時もカンマを除去して計算
                             let balStr = hasYesterdayData ? "自動保存 (歩数連携済)" : "食事のみ自動保存";
                             if (sp.bmr > 0) {
                                 const act = (yActiveCal === "不明") ? 0 : yActiveCal;
-                                const bal = tCal - (sp.bmr + act);
+                                const tCalNum = parseFloat(String(tCal).replace(/,/g, '')) || 0;
+                                const bal = tCalNum - (sp.bmr + act);
                                 balStr = bal > 0 ? `⚠️ +${bal} kcal` : `✨ ${bal} kcal`;
                             }
 
