@@ -139,7 +139,7 @@
                     </div>
                     
                     <div style="display: flex; gap: 5px; margin-top: 5px;">
-                        <input type="text" id="ai-chat-input" placeholder="例: 3km歩きたい / 近くのコンビニ探して" style="flex: 1; font-size: 0.8em; padding: 6px;" onkeypress="if(event.key==='Enter') sendAiChat()">
+                        <input type="text" id="ai-chat-input" placeholder="例: 池袋経由で新宿区役所 / 近くのコンビニ" style="flex: 1; font-size: 0.8em; padding: 6px;" onkeypress="if(event.key==='Enter') sendAiChat()">
                         <button onclick="sendAiChat()" id="ai-send-btn" style="width: auto; padding: 6px 10px; background: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 0.85em; font-weight: bold;">送信</button>
                     </div>
                 </div>
@@ -148,7 +148,7 @@
 
         <div id="tab-walk" class="main-tab-content active">
             <div class="card">
-                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v14.3 PRO版</span></h1>
+                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v14.4 PRO版</span></h1>
                 <div id="wake-lock-status" class="status-off">スリープ防止：OFF (画面タップ)</div>
                 
                 <div style="background: #f0f4f8; padding: 10px; border-radius: 10px; margin-bottom: 15px;">
@@ -381,33 +381,23 @@
         let foodDatabase = {};
         let todayFoodLogs = { bf: [], lu: [], dn: [], sn: [] };
 
-        // ★ AI関連の変数（記憶システム用）
         let chatHistory = [];
-        const MAX_HISTORY = 6; // 過去の直近3往復を記憶するエコ設計
+        const MAX_HISTORY = 6;
 
         function fixPastHistoryData() {
             let history = JSON.parse(localStorage.getItem('walkingHistory')) || [];
             let isFixed = false;
-            
             history.forEach(item => {
                 const inCalNum = parseFloat(String(item.inCal).replace(/,/g, '')) || 0;
                 const bmrNum = parseFloat(String(item.bmr).replace(/,/g, '')) || 0;
                 const actCalNum = parseFloat(String(item.calories).replace(/,/g, '')) || 0;
-                
                 if (bmrNum > 0) {
                     const trueBal = inCalNum - (bmrNum + actCalNum);
                     const trueBalStr = trueBal > 0 ? `⚠️ +${trueBal} kcal` : `✨ ${trueBal} kcal`;
-                    
-                    if (item.balance !== trueBalStr) {
-                        item.balance = trueBalStr;
-                        isFixed = true;
-                    }
+                    if (item.balance !== trueBalStr) { item.balance = trueBalStr; isFixed = true; }
                 }
             });
-            
-            if (isFixed) {
-                localStorage.setItem('walkingHistory', JSON.stringify(history));
-            }
+            if (isFixed) localStorage.setItem('walkingHistory', JSON.stringify(history));
         }
 
         window.toggleConcierge = function() {
@@ -442,13 +432,13 @@
         function getPersonaPrompt() {
             const persona = document.getElementById('ai-persona').value;
             const userName = document.getElementById('nickname-input').value || document.getElementById('realname-input').value || "ご主人様";
-            if(persona === 'concierge') return `あなたはユーザー専属のプライベート・コンシェルジュ（優秀なAI執事）です。常にスマートフォンのアプリ内からユーザーの健康と歩行をサポートする専用のパートナーとして振る舞ってください。ユーザーを「${userName}様」と呼び、非常に洗練されたフォーマルで丁寧な敬語を使用し、プロフェッショナルとして品格のある対応をしてください。`;
-            if(persona === 'maid') return `あなたは優しくて丁寧なメイドです。ユーザーを「${userName}」と呼び、献身的に褒めて癒やし、健康を気遣う口調で話してください。語尾は「〜ですね！」「〜ですよ♪」など。`;
-            if(persona === 'student') return `あなたはおっとりしていて、少し甘えん坊な女子学生です。ユーザーを「${userName}」と呼び、「〜だねぇ」「〜してほしいな」と慕うように、健康を気遣ってください。`;
-            if(persona === 'jiraikei') return `あなたはツンデレで地雷系の女の子です。ユーザーを「${userName}」と呼び、素直になれず強気ですが、実は誰よりも健康を心配している口調で。「〜しなさいよね！」など。`;
-            if(persona === 'secretary') return `あなたは冷静沈着で優秀な女性秘書です。ユーザーを「${userName}」と呼び、論理的な分析と的確なアドバイスを、丁寧な敬語で。「〜ですね。」「〜を推奨いたします。」など。`;
-            if(persona === 'ol') return `あなたは母性本能が強く、包容力のある女性の幼馴染（OL）です。ユーザーを「${userName}」と呼び、母親やお姉さんのように全てを包み込んで褒め、優しく健康をサポート。「えらいえらい！」など。`;
-            if(persona === 'trainer') return `あなたは明るく元気で、体育会系な女性のフィットネスコーチです。ユーザーを「${userName}君」と呼び、モチベーションが爆発するようにポジティブに応援。「さすがです！」「ファイトです！」など。`;
+            if(persona === 'concierge') return `あなたはユーザー専属のプライベート・コンシェルジュです。ユーザーを「${userName}様」と呼び、洗練されたフォーマルで丁寧な敬語を使用してください。`;
+            if(persona === 'maid') return `あなたは優しくて丁寧なメイドです。ユーザーを「${userName}」と呼び、献身的に褒めて癒やし、健康を気遣う口調で話してください。`;
+            if(persona === 'student') return `あなたはおっとりしていて、少し甘えん坊な女子学生です。ユーザーを「${userName}」と呼び、「〜だねぇ」「〜してほしいな」と慕うように。`;
+            if(persona === 'jiraikei') return `あなたはツンデレで地雷系の女の子です。ユーザーを「${userName}」と呼び、素直になれず強気ですが、実は誰よりも健康を心配している口調で。`;
+            if(persona === 'secretary') return `あなたは冷静沈着で優秀な女性秘書です。ユーザーを「${userName}」と呼び、論理的で丁寧な敬語で。`;
+            if(persona === 'ol') return `あなたは母性本能が強く包容力のある幼馴染（OL）です。ユーザーを「${userName}」と呼び、母親やお姉さんのように優しくサポートしてください。`;
+            if(persona === 'trainer') return `あなたは明るく元気で、体育会系な女性のフィットネスコーチです。ユーザーを「${userName}君」と呼び、モチベーションが爆発するようにポジティブに応援してください。`;
             return `あなたはAIコンシェルジュです。ユーザーを「${userName}」と呼び、親切にサポートしてください。`;
         }
 
@@ -456,32 +446,24 @@
             const msgBox = document.getElementById('ai-message');
             const btn = document.getElementById('ai-btn');
             let GEMINI_API_KEY = localStorage.getItem('geminiApiKey');
-            if (!GEMINI_API_KEY) { msgBox.innerHTML = "<b>【お願い】</b><br>「体調・食事」タブにある「⚙️ AI設定」から、Gemini APIキーを登録してくださいね！"; return; }
+            if (!GEMINI_API_KEY) { msgBox.innerHTML = "<b>【お願い】</b><br>「体調・食事」タブから、Gemini APIキーを登録してください！"; return; }
 
-            GEMINI_API_KEY = GEMINI_API_KEY.trim();
             btn.disabled = true;
             msgBox.innerHTML = '<span class="ai-typing">データを分析して考えています...💭</span>';
 
-            const bmrText = document.getElementById('bmr-display').innerText;
-            const inCalText = document.getElementById('total-kcal').innerText;
-            const balText = document.getElementById('balance-result').innerText;
-            const targetSteps = document.getElementById('target-steps-input').value || 8000;
-            
-            const prompt = `${getPersonaPrompt()}\n以下のユーザーの今日の健康データを分析し、短く（2〜3文程度で）自然な日本語の話し言葉でアドバイスやリアクションを返してください。マークダウン（**など）や箇条書きは絶対に使わず、そのまま吹き出しに入る文章だけにしてください。\n【今日のデータ】\n・目標歩数: ${targetSteps} 歩\n・現在の歩数: ${steps} 歩\n・運動消費カロリー: ${activeCal} kcal\n・摂取カロリー: ${inCalText} kcal\n・基礎代謝: ${bmrText} kcal\n・カロリーバランス: ${balText}`;
+            const prompt = `${getPersonaPrompt()}\n以下のユーザーの今日の健康データを分析し、短く（2〜3文程度で）自然な話し言葉でアドバイスを返してください。マークダウン（**など）は絶対に使わないでください。\n【データ】\n目標歩数: ${document.getElementById('target-steps-input').value}歩 / 現在: ${steps}歩\n消費: ${activeCal}kcal / 摂取: ${document.getElementById('total-kcal').innerText}kcal\nバランス: ${document.getElementById('balance-result').innerText}`;
 
             try {
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) });
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${GEMINI_API_KEY.trim()}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) });
                 if (!response.ok) throw new Error("通信エラー");
                 const data = await response.json();
                 msgBox.innerText = data.candidates[0].content.parts[0].text.replace(/\*/g, ''); 
             } catch (err) {
                 msgBox.innerText = "ごめんなさい、うまく考えがまとまりませんでした。通信状況を確認してください！";
-            } finally {
-                btn.disabled = false;
-            }
+            } finally { btn.disabled = false; }
         };
 
-        // ★ 記憶システム＋GPS把握を搭載した新AIチャット (座標推測ハルシネーション修正版)
+        // ★ AIルート案内（幻覚防止・経由地対応版）
         window.sendAiChat = async function() {
             const inputElem = document.getElementById('ai-chat-input');
             const userInput = inputElem.value.trim();
@@ -495,31 +477,29 @@
             inputElem.disabled = true; btn.disabled = true;
             msgBox.innerHTML = '<span class="ai-typing">リクエストを処理しています...💭</span>';
 
-            // システムプロンプト：座標を答えさせるのをやめ、検索用キーワードだけを作らせる
             const systemInstruction = `あなたは以下のキャラクター設定で話します。
 ${getPersonaPrompt()}
 ユーザーからの入力と、これまでの会話の文脈を踏まえて返答してください。
 
-【システム連携データ】
-現在のユーザーのGPS座標は 緯度:${currentLat}, 経度:${currentLng} です。現在地付近の施設を提案する場合は、この座標周辺を想定してください。
+【重要】
+現在のユーザーのGPS座標は 緯度:${currentLat}, 経度:${currentLng} です。現在地付近の施設を提案する場合は、この情報を考慮してください。
 
-もし「〇〇km歩きたい」「〇〇歩を一周したい」という【周回ルート】の要望なら以下のJSON形式で返して:
+もし「〇〇km歩きたい」「〇〇歩を一周したい」という【周回ルート】の要望なら:
 {"type": "loop", "value": 数値, "unit": "km" または "steps", "message": "キャラクター設定に従った返答メッセージ"}
 
-もし「〇〇へ行きたい」「近くの〇〇に行きたい」という【目的地ルート】の要望なら、地図検索エンジンに渡すためのキーワードを作成して以下のJSON形式で返して:
-{"type": "dest", "name": "地図検索用キーワード(必ず『東京都西東京市 〇〇』のように現在地の地名を含めてください)", "message": "キャラクター設定に従った返答メッセージ"}
+もし「〇〇へ行きたい」「近くの〇〇に行きたい」「〇〇を経由して〇〇に行きたい」という【目的地ルート】の要望なら、地図検索エンジンに渡すためのキーワードを作成して返して:
+{"type": "dest", "name": "最終目的地の検索キーワード（施設名や駅名など。地名を含めると精度が上がりますが、現在地周辺のコンビニ等を探す場合は単に『セブンイレブン』等でも構いません）", "waypoint": "もし『〇〇を経由して』など中継地の指定があればその検索キーワード。なければ空文字", "message": "キャラクター設定に従った返答メッセージ"}
 
 ルート以外の【会話や質問】なら:
 {"type": "chat", "message": "キャラクター設定に従った返答メッセージ"}
 
 出力は、余計なマークダウン（\`\`\`jsonなど）を含めない純粋なJSON文字列のみにしてください。決して緯度経度の数値は出力しないでください。`;
 
-            // 過去の記憶配列に今回のシステム指示とメッセージを合体
             let apiPayload = chatHistory.map(msg => ({ role: msg.role, parts: [{ text: msg.text }] }));
             apiPayload.push({ role: 'user', parts: [{ text: systemInstruction + "\n\nユーザーからの入力: 「" + userInput + "」" }] });
 
             try {
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`, {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${GEMINI_API_KEY.trim()}`, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ contents: apiPayload, generationConfig: { responseMimeType: "application/json" } })
                 });
@@ -528,14 +508,9 @@ ${getPersonaPrompt()}
                 const data = await response.json();
                 let textResult = data.candidates[0].content.parts[0].text;
                 
-                // 会話の記憶を更新（AIの返答も記憶させる）
                 chatHistory.push({ role: 'user', text: userInput });
                 chatHistory.push({ role: 'model', text: textResult });
-                
-                // エコ設計：古い記憶は忘れる
-                if (chatHistory.length > MAX_HISTORY) {
-                    chatHistory = chatHistory.slice(chatHistory.length - MAX_HISTORY);
-                }
+                if (chatHistory.length > MAX_HISTORY) chatHistory = chatHistory.slice(chatHistory.length - MAX_HISTORY);
 
                 const match = textResult.match(/\{[\s\S]*\}/);
                 if(match) textResult = match[0];
@@ -551,16 +526,27 @@ ${getPersonaPrompt()}
                     msgBox.innerHTML += `<br><small style="color:#27ae60;">📍 周回ルート（${result.value}${result.unit==='steps'?'歩':'km'}）を自動検索します！</small>`;
                     generateGoalRoute();
                 } else if (result.type === 'dest' && result.name) {
-                    msgBox.innerHTML += `<br><small style="color:#7f8c8d;">📍「${result.name}」の場所を地図で検索中...</small>`;
+                    msgBox.innerHTML += `<br><small style="color:#7f8c8d;">📍 場所を地図で検索中...</small>`;
                     
-                    // AIが作った検索キーワード（例: "東京都西東京市 田無駅"）でNominatimを検索
-                    const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(result.name)}&countrycodes=jp&limit=1`);
-                    const geoData = await geoRes.json();
-                    
-                    if(geoData && geoData.length > 0) {
-                        const lat = parseFloat(geoData[0].lat);
-                        const lon = parseFloat(geoData[0].lon);
+                    // 検索用関数（5件取得して、現在地から一番近いものを選ぶ）
+                    async function searchLocation(query) {
+                        const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&lat=${currentLat}&lon=${currentLng}&countrycodes=jp&limit=5`);
+                        const geoData = await geoRes.json();
+                        if (!geoData || geoData.length === 0) return null;
                         
+                        let best = geoData[0];
+                        let minDist = Infinity;
+                        for(let item of geoData) {
+                            const d = Math.pow(parseFloat(item.lat) - currentLat, 2) + Math.pow(parseFloat(item.lon) - currentLng, 2);
+                            if (d < minDist) { minDist = d; best = item; }
+                        }
+                        return best;
+                    }
+
+                    let destItem = await searchLocation(result.name);
+                    let wayItem = result.waypoint ? await searchLocation(result.waypoint) : null;
+
+                    if (destItem) {
                         document.querySelector('input[name="route-mode"][value="dest"]').checked = true;
                         toggleRouteMode();
                         
@@ -570,14 +556,26 @@ ${getPersonaPrompt()}
                             shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
                             iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
                         });
-                        destMarker = L.marker([lat, lon], {icon: redIcon}).addTo(map);
+                        destMarker = L.marker([parseFloat(destItem.lat), parseFloat(destItem.lon)], {icon: redIcon}).addTo(map);
                         destMarker.bindPopup(`📍 ${result.name}`).openPopup();
+
+                        if (waypointMarker) map.removeLayer(waypointMarker);
+                        isWaypointMode = false;
+                        if (wayItem) {
+                            const greenIcon = new L.Icon({
+                                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+                                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                                iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
+                            });
+                            waypointMarker = L.marker([parseFloat(wayItem.lat), parseFloat(wayItem.lon)], {icon: greenIcon}).addTo(map);
+                            waypointMarker.bindPopup(`🟢 ${result.waypoint}`).openPopup();
+                        }
                         
-                        map.setView([lat, lon], 14);
-                        msgBox.innerHTML = result.message + `<br><small style="color:#27ae60;">📍 地図に目的地をセットし、ルートを計算します！</small>`;
+                        map.setView([parseFloat(destItem.lat), parseFloat(destItem.lon)], 14);
+                        msgBox.innerHTML = result.message + `<br><small style="color:#27ae60;">📍 地図にセットし、ルートを計算します！</small>`;
                         generateGoalRoute();
                     } else {
-                        msgBox.innerHTML = result.message + `<br><small style="color:#e74c3c;">⚠️ すみません、「${result.name}」の場所が地図で見つかりませんでした。</small>`;
+                        msgBox.innerHTML = result.message + `<br><small style="color:#e74c3c;">⚠️ すみません、「${result.name}」が見つかりませんでした。</small>`;
                     }
                 }
             } catch (err) {
@@ -588,13 +586,13 @@ ${getPersonaPrompt()}
             }
         };
 
+        // 食事関連
         window.updateFoodDatalist = function() {
             const datalist = document.getElementById('food-history-list');
             datalist.innerHTML = '';
             for (let foodName in foodDatabase) {
                 const option = document.createElement('option');
-                option.value = foodName;
-                datalist.appendChild(option);
+                option.value = foodName; datalist.appendChild(option);
             }
         };
 
@@ -605,10 +603,7 @@ ${getPersonaPrompt()}
             todayFoodLogs[mealType].forEach(item => {
                 const div = document.createElement('div');
                 div.className = 'food-log-item';
-                div.innerHTML = `
-                    <span style="flex:1;"><strong>${item.name}</strong><br><small>${item.kcal}kcal / P:${item.p} F:${item.f} C:${item.c}</small></span>
-                    <button onclick="removeFoodItem('${mealType}', ${item.id})">✖ 削除</button>
-                `;
+                div.innerHTML = `<span style="flex:1;"><strong>${item.name}</strong><br><small>${item.kcal}kcal / P:${item.p} F:${item.f} C:${item.c}</small></span><button onclick="removeFoodItem('${mealType}', ${item.id})">✖ 削除</button>`;
                 container.appendChild(div);
             });
         };
@@ -618,147 +613,92 @@ ${getPersonaPrompt()}
             if(idx > -1) {
                 const item = todayFoodLogs[mealType][idx];
                 todayFoodLogs[mealType].splice(idx, 1);
-                
-                const cCal = parseFloat(document.getElementById(mealType+'-cal').value) || 0;
-                const cP = parseFloat(document.getElementById(mealType+'-p').value) || 0;
-                const cF = parseFloat(document.getElementById(mealType+'-f').value) || 0;
-                const cC = parseFloat(document.getElementById(mealType+'-c').value) || 0;
-                const cS = parseFloat(document.getElementById(mealType+'-s').value) || 0;
-
-                document.getElementById(mealType+'-cal').value = Math.max(0, cCal - item.kcal);
-                document.getElementById(mealType+'-p').value = Math.max(0, cP - item.p).toFixed(1);
-                document.getElementById(mealType+'-f').value = Math.max(0, cF - item.f).toFixed(1);
-                document.getElementById(mealType+'-c').value = Math.max(0, cC - item.c).toFixed(1);
-                document.getElementById(mealType+'-s').value = Math.max(0, cS - item.s).toFixed(1);
-                
-                calcAll();
-                renderFoodLogs(mealType);
+                const ids = ['-cal','-p','-f','-c','-s'];
+                ids.forEach(ext => {
+                    const el = document.getElementById(mealType+ext);
+                    el.value = Math.max(0, (parseFloat(el.value)||0) - item[ext.replace('-','')]).toFixed(ext==='-cal'?0:1);
+                });
+                calcAll(); renderFoodLogs(mealType);
             }
         };
 
         window.addNutritionToMeal = function(mealType, resultObj, foodName = "手動追加アイテム") {
-            const logItem = { id: Date.now(), name: foodName, ...resultObj };
-            todayFoodLogs[mealType].push(logItem);
+            todayFoodLogs[mealType].push({ id: Date.now(), name: foodName, ...resultObj });
             renderFoodLogs(mealType);
-
-            const currentKcal = parseFloat(document.getElementById(mealType + '-cal').value) || 0;
-            const currentP = parseFloat(document.getElementById(mealType + '-p').value) || 0;
-            const currentF = parseFloat(document.getElementById(mealType + '-f').value) || 0;
-            const currentC = parseFloat(document.getElementById(mealType + '-c').value) || 0;
-            const currentS = parseFloat(document.getElementById(mealType + '-s').value) || 0;
-
-            document.getElementById(mealType + '-cal').value = currentKcal + (resultObj.kcal || 0);
-            document.getElementById(mealType + '-p').value = (currentP + (resultObj.p || 0)).toFixed(1);
-            document.getElementById(mealType + '-f').value = (currentF + (resultObj.f || 0)).toFixed(1);
-            document.getElementById(mealType + '-c').value = (currentC + (resultObj.c || 0)).toFixed(1);
-            document.getElementById(mealType + '-s').value = (currentS + (resultObj.s || 0)).toFixed(1);
+            const ids = ['-cal','-p','-f','-c','-s'];
+            ids.forEach(ext => {
+                const el = document.getElementById(mealType+ext);
+                el.value = ((parseFloat(el.value)||0) + (resultObj[ext.replace('-','')])) .toFixed(ext==='-cal'?0:1);
+            });
             calcAll();
         };
 
         window.handleTextFood = async function(mealType) {
             const inputElem = document.getElementById(mealType + '-food-text');
             const foodName = inputElem.value.trim();
-            if (!foodName) { alert("食品名や料理名を入力してください！（例：ごはん0.5合）"); return; }
-
+            if (!foodName) return alert("食品名を入力してください！");
             const btn = document.getElementById(mealType + '-text-btn');
             
             if (foodDatabase[foodName]) {
-                const result = foodDatabase[foodName];
-                addNutritionToMeal(mealType, result, foodName);
-                alert(`✨ 記憶から「${foodName}」を追加しました！\nカロリー: ${result.kcal} kcal`);
-                inputElem.value = "";
-                return;
+                addNutritionToMeal(mealType, foodDatabase[foodName], foodName);
+                alert(`✨ 記憶から「${foodName}」を追加しました！`); inputElem.value = ""; return;
             }
 
             let GEMINI_API_KEY = localStorage.getItem('geminiApiKey');
-            if (!GEMINI_API_KEY) { alert("「⚙️ AI設定」からAPIキーを登録してください！"); return; }
+            if (!GEMINI_API_KEY) return alert("APIキーを登録してください！");
 
-            const originalText = btn.innerText;
-            btn.innerText = "⏳ 検索中...";
-            btn.disabled = true;
+            const originalText = btn.innerText; btn.innerText = "⏳ 検索中..."; btn.disabled = true;
 
             try {
-                const prompt = `以下の食品や料理の一般的な栄養成分を推定し、JSON形式で抽出してください。
-食品名: 「${foodName}」
-単位やマークダウン記号は一切含めず、純粋なJSON文字列（数値のみ、小数点可）だけを返してください。
-{ "kcal": カロリーの数値, "p": タンパク質の数値, "f": 脂質の数値, "c": 炭水化物の数値, "s": 食塩相当量の数値 }
-不明な項目は0にしてください。`;
-
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`, {
+                const prompt = `食品「${foodName}」の一般的な栄養成分を推定し、JSON形式で抽出してください。単位不要。{ "kcal": 0, "p": 0, "f": 0, "c": 0, "s": 0 }`;
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${GEMINI_API_KEY.trim()}`, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } })
                 });
                 if (!response.ok) throw new Error("通信エラー");
-
                 const data = await response.json();
-                let textResult = data.candidates[0].content.parts[0].text;
-                const match = textResult.match(/\{[\s\S]*\}/);
-                if(match) textResult = match[0];
-                const result = JSON.parse(textResult);
-
+                const match = data.candidates[0].content.parts[0].text.match(/\{[\s\S]*\}/);
+                const result = JSON.parse(match[0]);
                 const safeResult = { kcal: parseFloat(result.kcal)||0, p: parseFloat(result.p)||0, f: parseFloat(result.f)||0, c: parseFloat(result.c)||0, s: parseFloat(result.s)||0 };
+                
                 foodDatabase[foodName] = safeResult;
                 localStorage.setItem('foodDatabase', JSON.stringify(foodDatabase));
                 updateFoodDatalist();
-
                 addNutritionToMeal(mealType, safeResult, foodName);
-                alert(`🔍 AIが「${foodName}」の栄養素を推測し、追加・記憶しました！\n\n【追加分】\nカロリー: ${safeResult.kcal} kcal\nP: ${safeResult.p} g / F: ${safeResult.f} g / C: ${safeResult.c} g`);
-            } catch (err) {
-                alert("AIの検索に失敗しました。\n詳細: " + err.message);
-            } finally {
-                btn.innerText = originalText; btn.disabled = false; inputElem.value = ""; 
-            }
+                alert(`🔍 AIが「${foodName}」を追加しました！`);
+            } catch (err) { alert("検索失敗: " + err.message); } finally { btn.innerText = originalText; btn.disabled = false; inputElem.value = ""; }
         };
 
         window.handleImageUpload = async function(mealType, inputElem) {
-            const file = inputElem.files[0];
-            if (!file) return;
-
+            const file = inputElem.files[0]; if (!file) return;
             let GEMINI_API_KEY = localStorage.getItem('geminiApiKey');
-            if (!GEMINI_API_KEY) { alert("「⚙️ AI設定」からAPIキーを登録してください！"); inputElem.value = ""; return; }
+            if (!GEMINI_API_KEY) return alert("APIキーを登録してください！");
 
-            const btn = inputElem.nextElementSibling;
-            const originalText = btn.innerText;
-            btn.innerText = "⏳ 解析中...";
-            btn.disabled = true;
+            const btn = inputElem.nextElementSibling; const originalText = btn.innerText;
+            btn.innerText = "⏳ 解析中..."; btn.disabled = true;
 
             try {
-                const base64Data = await new Promise((resolve, reject) => {
-                    const reader = new FileReader(); reader.onload = () => resolve(reader.result.split(',')[1]); reader.onerror = error => reject(error); reader.readAsDataURL(file);
-                });
-
-                const prompt = `画像から栄養成分表示を読み取り、以下のJSON形式で数値を抽出してください。単位やマークダウンは不要で、純粋なJSON文字列（数値のみ、小数点可）を返してください。
-{ "kcal": カロリーの数値, "p": タンパク質の数値, "f": 脂質の数値, "c": 炭水化物の数値, "s": 食塩相当量の数値 }
-見つからない項目は0にしてください。`;
-
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`, {
+                const base64Data = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result.split(',')[1]); reader.onerror = error => reject(error); reader.readAsDataURL(file); });
+                const prompt = `画像から栄養成分を読み取りJSONで抽出。単位不要。{ "kcal": 0, "p": 0, "f": 0, "c": 0, "s": 0 }`;
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${GEMINI_API_KEY.trim()}`, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ contents: [{ parts: [ { text: prompt }, { inlineData: { mimeType: file.type, data: base64Data } } ] }], generationConfig: { responseMimeType: "application/json" } })
                 });
-
                 if (!response.ok) throw new Error("通信エラー");
-
                 const data = await response.json();
-                let textResult = data.candidates[0].content.parts[0].text;
-                const match = textResult.match(/\{[\s\S]*\}/); if(match) textResult = match[0];
-                const result = JSON.parse(textResult);
-
+                const match = data.candidates[0].content.parts[0].text.match(/\{[\s\S]*\}/);
+                const result = JSON.parse(match[0]);
                 const safeResult = { kcal: parseFloat(result.kcal)||0, p: parseFloat(result.p)||0, f: parseFloat(result.f)||0, c: parseFloat(result.c)||0, s: parseFloat(result.s)||0 };
                 addNutritionToMeal(mealType, safeResult, "📷 スキャンした食品");
-                alert(`📸 成分表を読み取り、追加しました！\nカロリー: ${safeResult.kcal} kcal`);
-            } catch (err) {
-                alert("画像の解析に失敗しました。\n詳細: " + err.message);
-            } finally {
-                btn.innerText = originalText; btn.disabled = false; inputElem.value = ""; 
-            }
+                alert(`📸 成分表を追加しました！`);
+            } catch (err) { alert("解析失敗: " + err.message); } finally { btn.innerText = originalText; btn.disabled = false; inputElem.value = ""; }
         };
 
         window.calcAll = function() {
             try {
                 const real = document.getElementById('realname-input').value;
                 const nick = document.getElementById('nickname-input').value;
-                let displayName = "あなた"; if (nick) displayName = nick; else if (real) displayName = real;
-                document.getElementById('app-title').innerHTML = `${displayName}の健康ログ <span class="version-badge">v14.3 PRO版</span>`;
+                document.getElementById('app-title').innerHTML = `${nick||real||"あなた"}の健康ログ <span class="version-badge">v14.4 PRO版</span>`;
 
                 const w = parseFloat(document.getElementById('weight-input').value) || 0;
                 const h = parseFloat(document.getElementById('height-input').value) || 0;
@@ -774,14 +714,9 @@ ${getPersonaPrompt()}
                     if (today.getMonth() - dob.getMonth() < 0 || (today.getMonth() - dob.getMonth() === 0 && today.getDate() < dob.getDate())) a--;
                     document.getElementById('calc-age').innerText = a;
                 }
-                let bmi = 0; if (h > 0 && w > 0) bmi = (w / Math.pow(h / 100, 2)).toFixed(1);
-                document.getElementById('bmi-display').innerText = bmi || "0.0";
+                document.getElementById('bmi-display').innerText = (h > 0 && w > 0) ? (w / Math.pow(h / 100, 2)).toFixed(1) : "0.0";
                 
-                let baseBmr = 0;
-                if (w > 0) {
-                    if (h > 0 && a > 0) baseBmr = (g === 'male') ? (10*w + 6.25*h - 5*a + 5) : (10*w + 6.25*h - 5*a - 161);
-                    else baseBmr = w * 22; 
-                }
+                let baseBmr = w > 0 ? ((h > 0 && a > 0) ? ((g === 'male') ? (10*w + 6.25*h - 5*a + 5) : (10*w + 6.25*h - 5*a - 161)) : w * 22) : 0;
                 const bmr = Math.max(0, Math.round(baseBmr));
                 document.getElementById('bmr-display').innerText = bmr;
                 
@@ -810,33 +745,19 @@ ${getPersonaPrompt()}
                 let targetP = 0, targetF = 0, targetC = 0, targetCal = 0;
                 if (w > 0 && bmr > 0) {
                     const currentTdee = bmr + activeCal;
-                    if(goalMode === 'diet') { 
-                        targetCal = Math.max(bmr, currentTdee - 300); 
-                        targetP = w * 1.5; 
-                        targetF = w * 0.8; 
-                    } else if(goalMode === 'muscle') { 
-                        targetCal = currentTdee + 300; 
-                        targetP = w * 2.0; 
-                        targetF = w * 1.0; 
-                    } else { 
-                        targetCal = currentTdee; 
-                        targetP = w * 1.2; 
-                        targetF = w * 1.0; 
-                    }
+                    if(goalMode === 'diet') { targetCal = Math.max(bmr, currentTdee - 300); targetP = w * 1.5; targetF = w * 0.8; }
+                    else if(goalMode === 'muscle') { targetCal = currentTdee + 300; targetP = w * 2.0; targetF = w * 1.0; }
+                    else { targetCal = currentTdee; targetP = w * 1.2; targetF = w * 1.0; }
                     targetC = Math.max(0, (targetCal - (targetP * 4 + targetF * 9)) / 4);
                 }
 
                 document.getElementById('target-cal-display').innerText = Math.round(targetCal) || 0;
-                document.getElementById('p-text').innerText = `${tP.toFixed(1)} / ${Math.round(targetP)} g`;
-                document.getElementById('p-bar').style.width = targetP > 0 ? Math.min(100, (tP / targetP) * 100) + '%' : '0%';
-                document.getElementById('f-text').innerText = `${tF.toFixed(1)} / ${Math.round(targetF)} g`;
-                document.getElementById('f-bar').style.width = targetF > 0 ? Math.min(100, (tF / targetF) * 100) + '%' : '0%';
-                document.getElementById('c-text').innerText = `${tC.toFixed(1)} / ${Math.round(targetC)} g`;
-                document.getElementById('c-bar').style.width = targetC > 0 ? Math.min(100, (tC / targetC) * 100) + '%' : '0%';
+                document.getElementById('p-text').innerText = `${tP.toFixed(1)} / ${Math.round(targetP)} g`; document.getElementById('p-bar').style.width = targetP > 0 ? Math.min(100, (tP / targetP) * 100) + '%' : '0%';
+                document.getElementById('f-text').innerText = `${tF.toFixed(1)} / ${Math.round(targetF)} g`; document.getElementById('f-bar').style.width = targetF > 0 ? Math.min(100, (tF / targetF) * 100) + '%' : '0%';
+                document.getElementById('c-text').innerText = `${tC.toFixed(1)} / ${Math.round(targetC)} g`; document.getElementById('c-bar').style.width = targetC > 0 ? Math.min(100, (tC / targetC) * 100) + '%' : '0%';
 
                 const cm = { bf: [getVal('bf-cal'), getVal('bf-p'), getVal('bf-f'), getVal('bf-c'), getVal('bf-s')], lu: [getVal('lu-cal'), getVal('lu-p'), getVal('lu-f'), getVal('lu-c'), getVal('lu-s')], dn: [getVal('dn-cal'), getVal('dn-p'), getVal('dn-f'), getVal('dn-c'), getVal('dn-s')], sn: [getVal('sn-cal'), getVal('sn-p'), getVal('sn-f'), getVal('sn-c'), getVal('sn-s')] };
-                const todayStr = new Date().toLocaleDateString();
-                localStorage.setItem('userProfileV7', JSON.stringify({realname: real, nickname: nick, weight: w, height: h, dob: dobStr, gender: g, targetSteps: targetSteps, goalMode: goalMode, meals: cm, todayLogs: todayFoodLogs, steps: steps, lastDate: todayStr, bmr: bmr}));
+                localStorage.setItem('userProfileV7', JSON.stringify({realname: real, nickname: nick, weight: w, height: h, dob: dobStr, gender: g, targetSteps: targetSteps, goalMode: goalMode, meals: cm, todayLogs: todayFoodLogs, steps: steps, lastDate: new Date().toLocaleDateString(), bmr: bmr}));
             } catch(e) { console.error(e); }
         };
 
@@ -844,7 +765,7 @@ ${getPersonaPrompt()}
 
         window.enableWaypointMode = function() {
             const mode = document.querySelector('input[name="route-mode"]:checked').value;
-            if (mode !== 'dest') { alert("中継地を追加するには、まず「📍 目的地モード」を選んでください！"); return; }
+            if (mode !== 'dest') return alert("中継地を追加するには、まず「📍 目的地モード」を選んでください！");
             isWaypointMode = true;
             document.getElementById('dest-hint').innerHTML = "地図を直接タップして、<span style='color:#27ae60;'>中継地（緑のピン）</span>を立ててください。";
             if (isFullscreen) alert("🟢 中継地追加モードです。\n地図をタップして緑のピンを立ててください！");
@@ -855,11 +776,9 @@ ${getPersonaPrompt()}
             if (waypointMarker) { window.map.removeLayer(waypointMarker); waypointMarker = null; }
             if (window.goalPath) window.goalPath.setLatLngs([]);
             isWaypointMode = false;
-            const mode = document.querySelector('input[name="route-mode"]:checked').value;
-            if (mode === 'dest') document.getElementById('dest-hint').innerHTML = "地図を直接タップして、<span style='color:#e74c3c;'>目的地（赤いピン）</span>を立ててください。";
+            if (document.querySelector('input[name="route-mode"]:checked').value === 'dest') document.getElementById('dest-hint').innerHTML = "地図を直接タップして、<span style='color:#e74c3c;'>目的地（赤いピン）</span>を立ててください。";
         };
 
-        // ★ 完全自動保存ロジック
         window.performAutoSave = function(dateStr, stepCount, sp) {
             let history = JSON.parse(localStorage.getItem('walkingHistory')) || [];
             history = history.filter(h => h.date !== dateStr); 
@@ -870,25 +789,15 @@ ${getPersonaPrompt()}
                 add(sp.meals.bf); add(sp.meals.lu); add(sp.meals.dn); add(sp.meals.sn);
             }
             
-            let w = parseFloat(sp.weight) || 65;
-            let h = parseFloat(sp.height) || 170;
-            let bmr = parseFloat(sp.bmr) || 0;
-            let bmi = h > 0 ? (w / Math.pow(h / 100, 2)).toFixed(1) : 0;
-            
+            let w = parseFloat(sp.weight) || 65; let h = parseFloat(sp.height) || 170;
+            let bmr = parseFloat(sp.bmr) || 0; let bmi = h > 0 ? (w / Math.pow(h / 100, 2)).toFixed(1) : 0;
             let actCal = Math.round(stepCount * w * 0.0005) || 0;
             let balStr = "自動保存 (歩数連携済)";
             
-            if (bmr > 0) {
-                const bal = tCal - (bmr + actCal);
-                balStr = bal > 0 ? `⚠️ +${bal} kcal` : `✨ ${bal} kcal`;
-            }
+            if (bmr > 0) { const bal = tCal - (bmr + actCal); balStr = bal > 0 ? `⚠️ +${bal} kcal` : `✨ ${bal} kcal`; }
 
             if(tCal > 0 || stepCount > 0) {
-                history.unshift({
-                    date: dateStr, steps: stepCount, weight: w || '--', calories: actCal,
-                    bmi: bmi, bmr: bmr || "自動", inCal: tCal, p: tP.toFixed(1), f: tF.toFixed(1), c: tC.toFixed(1), s: tS.toFixed(1), 
-                    balance: balStr
-                });
+                history.unshift({ date: dateStr, steps: stepCount, weight: w || '--', calories: actCal, bmi: bmi, bmr: bmr || "自動", inCal: tCal, p: tP.toFixed(1), f: tF.toFixed(1), c: tC.toFixed(1), s: tS.toFixed(1), balance: balStr });
                 history.sort((a, b) => new Date(b.date) - new Date(a.date));
                 localStorage.setItem('walkingHistory', JSON.stringify(history));
             }
@@ -898,10 +807,7 @@ ${getPersonaPrompt()}
             fixPastHistoryData();
 
             const urlParams = new URLSearchParams(window.location.search);
-            let urlHasParams = false;
-            let yStepsFromURL = null;
-            let tStepsFromURL = null;
-
+            let urlHasParams = false; let yStepsFromURL = null; let tStepsFromURL = null;
             if(urlParams.has('y_steps')) { yStepsFromURL = parseFloat(urlParams.get('y_steps')) || 0; urlHasParams = true; }
             if(urlParams.has('steps')) { tStepsFromURL = parseFloat(urlParams.get('steps')) || 0; urlHasParams = true; }
 
@@ -914,67 +820,27 @@ ${getPersonaPrompt()}
 
                     if (sp.lastDate && sp.lastDate !== todayStr) {
                         let pendingSteps = sp.steps || 0;
-                        const yesterdayStr = new Date(Date.now() - 86400000).toLocaleDateString();
-                        
-                        if (sp.lastDate === yesterdayStr && yStepsFromURL !== null) {
-                            pendingSteps = yStepsFromURL;
-                        }
-                        
+                        if (sp.lastDate === new Date(Date.now() - 86400000).toLocaleDateString() && yStepsFromURL !== null) pendingSteps = yStepsFromURL;
                         performAutoSave(sp.lastDate, pendingSteps, sp);
-                        
-                        sp.meals = { bf: [], lu: [], dn: [], sn: [] };
-                        sp.todayLogs = { bf: [], lu: [], dn: [], sn: [] };
-                        sp.steps = 0;
+                        sp.meals = { bf: [], lu: [], dn: [], sn: [] }; sp.todayLogs = { bf: [], lu: [], dn: [], sn: [] }; sp.steps = 0;
                     }
                     
-                    sp.lastDate = todayStr;
-                    localStorage.setItem('userProfileV7', JSON.stringify(sp));
+                    sp.lastDate = todayStr; localStorage.setItem('userProfileV7', JSON.stringify(sp));
 
-                    if (sp.realname) document.getElementById('realname-input').value = sp.realname;
-                    if (sp.nickname) document.getElementById('nickname-input').value = sp.nickname;
-                    if (sp.weight) document.getElementById('weight-input').value = sp.weight;
-                    if (sp.height) document.getElementById('height-input').value = sp.height;
-                    if (sp.gender) document.getElementById('gender-input').value = sp.gender;
-                    if (sp.dob) document.getElementById('dob-input').value = sp.dob;
-                    if (sp.targetSteps) document.getElementById('target-steps-input').value = sp.targetSteps;
-                    if (sp.goalMode) document.getElementById('goal-mode').value = sp.goalMode;
+                    ['realname','nickname','weight','height','gender','dob','targetSteps','goalMode'].forEach(k => { if(sp[k]) document.getElementById(k+'-input').value = sp[k]; });
+                    if (sp.meals) { const sv = (p, a) => { document.getElementById(p+'-cal').value = a[0]||''; document.getElementById(p+'-p').value = a[1]||''; document.getElementById(p+'-f').value = a[2]||''; document.getElementById(p+'-c').value = a[3]||''; document.getElementById(p+'-s').value = a[4]||''; };
+                        if(sp.meals.bf) sv('bf', sp.meals.bf); if(sp.meals.lu) sv('lu', sp.meals.lu); if(sp.meals.dn) sv('dn', sp.meals.dn); if(sp.meals.sn) sv('sn', sp.meals.sn); }
+                    if (sp.todayLogs) { todayFoodLogs = sp.todayLogs; renderFoodLogs('bf'); renderFoodLogs('lu'); renderFoodLogs('dn'); renderFoodLogs('sn'); }
                     
-                    if (sp.meals) {
-                        const sv = (p, a) => { document.getElementById(p+'-cal').value = a[0]||''; document.getElementById(p+'-p').value = a[1]||''; document.getElementById(p+'-f').value = a[2]||''; document.getElementById(p+'-c').value = a[3]||''; document.getElementById(p+'-s').value = a[4]||''; };
-                        if(sp.meals.bf) sv('bf', sp.meals.bf); if(sp.meals.lu) sv('lu', sp.meals.lu); if(sp.meals.dn) sv('dn', sp.meals.dn); if(sp.meals.sn) sv('sn', sp.meals.sn);
-                    }
-                    
-                    if (sp.todayLogs) {
-                        todayFoodLogs = sp.todayLogs;
-                        renderFoodLogs('bf'); renderFoodLogs('lu'); renderFoodLogs('dn'); renderFoodLogs('sn');
-                    }
-                    
-                    if (tStepsFromURL !== null) {
-                        steps = tStepsFromURL;
-                    } else if (sp.steps) {
-                        steps = sp.steps;
-                    }
-                } else {
-                    if (tStepsFromURL !== null) steps = tStepsFromURL;
-                }
-            } catch(e) { console.error(e); }
-
-            if(localStorage.getItem('hideConcierge') === 'true') {
-                document.getElementById('concierge-content').style.display = 'none';
-                document.getElementById('concierge-toggle-btn').innerText = "▼ コンシェルジュを表示";
-            }
-
-            const savedPersona = localStorage.getItem('aiPersona');
-            if (savedPersona) { document.getElementById('ai-persona').value = savedPersona; window.changePersona(); }
-
-            const savedKey = localStorage.getItem('geminiApiKey');
-            if (savedKey) document.getElementById('api-key-input').value = savedKey;
-
-            try {
-                const savedDB = localStorage.getItem('foodDatabase');
-                if (savedDB) foodDatabase = JSON.parse(savedDB);
-                updateFoodDatalist();
+                    if (tStepsFromURL !== null) steps = tStepsFromURL; else if (sp.steps) steps = sp.steps;
+                } else if (tStepsFromURL !== null) steps = tStepsFromURL;
             } catch(e) {}
+
+            if(localStorage.getItem('hideConcierge') === 'true') { document.getElementById('concierge-content').style.display = 'none'; document.getElementById('concierge-toggle-btn').innerText = "▼ コンシェルジュを表示"; }
+            if (localStorage.getItem('aiPersona')) { document.getElementById('ai-persona').value = localStorage.getItem('aiPersona'); window.changePersona(); }
+            if (localStorage.getItem('geminiApiKey')) document.getElementById('api-key-input').value = localStorage.getItem('geminiApiKey');
+
+            try { const savedDB = localStorage.getItem('foodDatabase'); if (savedDB) { foodDatabase = JSON.parse(savedDB); updateFoodDatalist(); } } catch(e) {}
 
             document.getElementById('steps-display').innerText = steps.toLocaleString();
             if (urlHasParams) window.history.replaceState(null, '', window.location.pathname);
@@ -982,16 +848,13 @@ ${getPersonaPrompt()}
             calcAll();
 
             window.switchMainTab = function(tabName) {
-                document.querySelectorAll('.main-tab-content').forEach(el => el.classList.remove('active'));
-                document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
-                document.getElementById('tab-' + tabName).classList.add('active');
-                document.getElementById('nav-' + tabName).classList.add('active');
-                if(tabName === 'walk' && window.map) { setTimeout(() => { window.map.invalidateSize(); }, 100); }
+                document.querySelectorAll('.main-tab-content').forEach(el => el.classList.remove('active')); document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+                document.getElementById('tab-' + tabName).classList.add('active'); document.getElementById('nav-' + tabName).classList.add('active');
+                if(tabName === 'walk' && window.map) setTimeout(() => { window.map.invalidateSize(); }, 100);
             };
 
             window.toggleFullscreen = function() {
-                const container = document.getElementById('map-container');
-                isFullscreen = !isFullscreen;
+                const container = document.getElementById('map-container'); isFullscreen = !isFullscreen;
                 if (isFullscreen) { container.classList.add('is-fullscreen'); document.body.classList.add('fullscreen-active'); } 
                 else { container.classList.remove('is-fullscreen'); document.body.classList.remove('fullscreen-active'); }
                 setTimeout(() => { if(window.map) window.map.invalidateSize(); }, 300);
@@ -999,41 +862,26 @@ ${getPersonaPrompt()}
 
             window.toggleRouteMode = function() {
                 const mode = document.querySelector('input[name="route-mode"]:checked').value;
-                const inputArea = document.getElementById('distance-input-area');
-                const hint = document.getElementById('dest-hint');
-                const btn1 = document.getElementById('route-btn');
-                const btn2 = document.getElementById('fs-route-btn');
-                
-                if (mode === 'dest') {
-                    inputArea.style.display = 'none'; hint.innerHTML = "地図を直接タップして、<span style='color:#e74c3c;'>目的地（赤いピン）</span>を立ててください。"; hint.style.display = 'block';
-                    btn1.innerText = "目的地までのルートを検索"; if(btn2) btn2.innerText = "🔍 ルートを再検索";
-                } else {
-                    inputArea.style.display = 'flex'; hint.style.display = 'none';
-                    btn1.innerText = "おすすめルートを検索"; if(btn2) btn2.innerText = "🔍 ルートを再検索";
-                }
+                const inputArea = document.getElementById('distance-input-area'); const hint = document.getElementById('dest-hint');
+                const btn1 = document.getElementById('route-btn'); const btn2 = document.getElementById('fs-route-btn');
+                if (mode === 'dest') { inputArea.style.display = 'none'; hint.innerHTML = "地図を直接タップして、<span style='color:#e74c3c;'>目的地（赤いピン）</span>を立ててください。"; hint.style.display = 'block'; btn1.innerText = "目的地までのルートを検索"; if(btn2) btn2.innerText = "🔍 ルートを再検索"; } 
+                else { inputArea.style.display = 'flex'; hint.style.display = 'none'; btn1.innerText = "おすすめルートを検索"; if(btn2) btn2.innerText = "🔍 ルートを再検索"; }
             };
 
             try {
-                window.requestWakeLock = async function() {
-                    try { 
-                        let wakeLock = await navigator.wakeLock.request('screen');
-                        document.getElementById('wake-lock-status').innerText = "スリープ防止：ON (計測中)"; document.getElementById('wake-lock-status').className = "status-on";
-                    } catch (err) {}
-                };
+                window.requestWakeLock = async function() { try { await navigator.wakeLock.request('screen'); document.getElementById('wake-lock-status').innerText = "スリープ防止：ON (計測中)"; document.getElementById('wake-lock-status').className = "status-on"; } catch (err) {} };
                 document.body.addEventListener('click', requestWakeLock);
             } catch(e) {}
 
             window.renderGraph = function() {
                 try {
-                    let history = JSON.parse(localStorage.getItem('walkingHistory')) || [];
-                    let graphData = [...history].reverse(); let labels = graphData.map(item => item.date);
+                    let history = JSON.parse(localStorage.getItem('walkingHistory')) || []; let graphData = [...history].reverse(); let labels = graphData.map(item => item.date);
                     let dataPoints = [], lineColor = "", labelName = "";
                     if (window.currentGraphMode === 'weight') { dataPoints = graphData.map(i => parseFloat(i.weight)||0); labelName = "体重(kg)"; lineColor = "#3498db"; }
                     else if (window.currentGraphMode === 'bmi') { dataPoints = graphData.map(i => parseFloat(i.bmi)||0); labelName = "BMI"; lineColor = "#9b59b6"; }
                     else if (window.currentGraphMode === 'bmr') { dataPoints = graphData.map(i => parseFloat(i.bmr)||0); labelName = "基礎代謝"; lineColor = "#e67e22"; }
-                    const ctx = document.getElementById('healthChart').getContext('2d');
                     if (myChart) myChart.destroy();
-                    myChart = new Chart(ctx, { type: 'line', data: { labels: labels, datasets: [{ label: labelName, data: dataPoints, borderColor: lineColor, backgroundColor: lineColor, borderWidth: 2, tension: 0, pointRadius: 4, pointBackgroundColor: '#fff' }] }, options: { responsive: true, plugins: { legend: { display: false } } } });
+                    myChart = new Chart(document.getElementById('healthChart').getContext('2d'), { type: 'line', data: { labels: labels, datasets: [{ label: labelName, data: dataPoints, borderColor: lineColor, backgroundColor: lineColor, borderWidth: 2, tension: 0, pointRadius: 4, pointBackgroundColor: '#fff' }] }, options: { responsive: true, plugins: { legend: { display: false } } } });
                 } catch(e) {}
             };
             window.switchGraph = function(mode) { window.currentGraphMode = mode; document.querySelectorAll('.chart-tab-btn').forEach(b => b.classList.remove('active')); document.getElementById('tab-' + mode).classList.add('active'); renderGraph(); };
@@ -1042,53 +890,34 @@ ${getPersonaPrompt()}
                 try {
                     const date = new Date().toLocaleDateString();
                     const newData = { date, steps, weight: document.getElementById('weight-input').value, calories: activeCal, bmi: document.getElementById('bmi-display').innerText, bmr: document.getElementById('bmr-display').innerText, inCal: document.getElementById('total-kcal').innerText, p: document.getElementById('total-p').innerText, f: document.getElementById('total-f').innerText, c: document.getElementById('total-c').innerText, s: document.getElementById('total-s').innerText, balance: document.getElementById('balance-result').innerText };
-                    let history = JSON.parse(localStorage.getItem('walkingHistory')) || [];
-                    const index = history.findIndex(item => item.date === date);
+                    let history = JSON.parse(localStorage.getItem('walkingHistory')) || []; const index = history.findIndex(item => item.date === date);
                     if (index > -1) history[index] = newData; else history.unshift(newData);
-                    localStorage.setItem('walkingHistory', JSON.stringify(history));
-                    alert("すべての記録を保存しました！"); displayHistory(); renderGraph();
+                    localStorage.setItem('walkingHistory', JSON.stringify(history)); alert("すべての記録を保存しました！"); displayHistory(); renderGraph();
                 } catch(e) {}
             };
 
             window.displayHistory = function() {
-                try {
-                    let history = JSON.parse(localStorage.getItem('walkingHistory')) || [];
-                    document.getElementById('history-list').innerHTML = history.map(item => `<div class="history-item"><strong style="font-size: 1.1em; color:#2c3e50;">${item.date}</strong><br>🚶‍♂️ ${item.steps !== "不明" ? Number(item.steps).toLocaleString() : "不明"}歩 / 🔥 運動消費: ${item.calories}kcal<br>🍽️ 摂取: ${item.inCal||0}kcal (P:${item.p||0} F:${item.f||0} C:${item.c||0})<br>⚖️ 体重: ${item.weight||'--'}kg / 📈 バランス: <strong>${item.balance||'--'}</strong></div>`).join('');
-                } catch(e) {}
+                try { document.getElementById('history-list').innerHTML = (JSON.parse(localStorage.getItem('walkingHistory')) || []).map(item => `<div class="history-item"><strong style="font-size: 1.1em; color:#2c3e50;">${item.date}</strong><br>🚶‍♂️ ${item.steps !== "不明" ? Number(item.steps).toLocaleString() : "不明"}歩 / 🔥 運動消費: ${item.calories}kcal<br>🍽️ 摂取: ${item.inCal||0}kcal (P:${item.p||0} F:${item.f||0} C:${item.c||0})<br>⚖️ 体重: ${item.weight||'--'}kg / 📈 バランス: <strong>${item.balance||'--'}</strong></div>`).join(''); } catch(e) {}
             };
             displayHistory(); renderGraph();
 
-            window.changeGoalPlaceholder = function() {
-                const type = document.getElementById('goal-type').value;
-                const input = document.getElementById('goal-value');
-                if (type === 'distance') { input.value = "1"; input.step = "0.5"; } else { input.value = "3000"; input.step = "500"; }
-            };
+            window.changeGoalPlaceholder = function() { document.getElementById('goal-value').value = document.getElementById('goal-type').value === 'distance' ? "1" : "3000"; document.getElementById('goal-value').step = document.getElementById('goal-type').value === 'distance' ? "0.5" : "500"; };
 
             try {
                 window.map = L.map('map', { zoomControl: false }).setView([35.6812, 139.7671], 15);
                 L.control.zoom({ position: 'bottomright' }).addTo(window.map);
-                
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
                 const marker = L.marker([35.6812, 139.7671]).addTo(map);
-                let pathPoints = [];
-                window.goalPath = L.polyline([], { color: '#2980b9', weight: 6, opacity: 0.8 }).addTo(map);
+                let pathPoints = []; window.goalPath = L.polyline([], { color: '#2980b9', weight: 6, opacity: 0.8 }).addTo(map);
                 const walkingPath = L.polyline([], { color: 'red', weight: 5 }).addTo(map);
 
-                let isFirstLocation = true;
-
-                window.map.on('dragstart', function() { isTrackingMode = false; });
+                let isFirstLocation = true; window.map.on('dragstart', function() { isTrackingMode = false; });
 
                 if (navigator.geolocation) {
                     navigator.geolocation.watchPosition(p => {
-                        currentLat = p.coords.latitude; 
-                        currentLng = p.coords.longitude;
-                        const pos = [currentLat, currentLng];
-                        
-                        if (isFirstLocation) { map.setView(pos, 15); isFirstLocation = false; } 
-                        else if (isTrackingMode) { map.setView(pos, map.getZoom()); }
-                        
-                        marker.setLatLng(pos);
-                        pathPoints.push(pos); walkingPath.setLatLngs(pathPoints);
+                        currentLat = p.coords.latitude; currentLng = p.coords.longitude; const pos = [currentLat, currentLng];
+                        if (isFirstLocation) { map.setView(pos, 15); isFirstLocation = false; } else if (isTrackingMode) { map.setView(pos, map.getZoom()); }
+                        marker.setLatLng(pos); pathPoints.push(pos); walkingPath.setLatLngs(pathPoints);
                     }, null, { enableHighAccuracy: true });
                 }
 
@@ -1097,115 +926,50 @@ ${getPersonaPrompt()}
                     if (mode === 'dest') {
                         if (isWaypointMode) {
                             if (waypointMarker) map.removeLayer(waypointMarker);
-                            const greenIcon = new L.Icon({
-                                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
-                                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-                                iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
-                            });
-                            waypointMarker = L.marker(e.latlng, {icon: greenIcon}).addTo(map);
-                            waypointMarker.bindPopup("🟢 中継地").openPopup();
-                            isWaypointMode = false;
-                            document.getElementById('dest-hint').innerHTML = "地図を直接タップして、<span style='color:#e74c3c;'>目的地（赤いピン）</span>を立ててください。";
+                            waypointMarker = L.marker(e.latlng, {icon: new L.Icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41] })}).addTo(map);
+                            waypointMarker.bindPopup("🟢 中継地").openPopup(); isWaypointMode = false; document.getElementById('dest-hint').innerHTML = "地図を直接タップして、<span style='color:#e74c3c;'>目的地（赤いピン）</span>を立ててください。";
                         } else {
                             if (destMarker) map.removeLayer(destMarker);
-                            const redIcon = new L.Icon({
-                                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
-                                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-                                iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
-                            });
-                            destMarker = L.marker(e.latlng, {icon: redIcon}).addTo(map);
+                            destMarker = L.marker(e.latlng, {icon: new L.Icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41] })}).addTo(map);
                             destMarker.bindPopup("📍 目的地").openPopup();
                         }
                     }
                 });
 
                 window.generateGoalRoute = async function() {
-                    const btn1 = document.getElementById('route-btn');
-                    const btn2 = document.getElementById('fs-route-btn');
-                    const type = document.getElementById('goal-type').value;
-                    const value = parseFloat(document.getElementById('goal-value').value);
+                    const btn1 = document.getElementById('route-btn'); const btn2 = document.getElementById('fs-route-btn');
                     const mode = document.querySelector('input[name="route-mode"]:checked').value;
 
                     if (mode === 'dest') {
-                        if (!destMarker) { alert("地図を直接タップして、目的地（赤いピン）を立ててください。"); return; }
-                        btn1.innerText = "通信中... (計算中)"; btn1.disabled = true;
-                        if(btn2) { btn2.innerText = "⏳ 計算中..."; btn2.disabled = true; }
-
-                        let reqCoords = [];
-                        if (waypointMarker) reqCoords = [ [currentLng, currentLat], [waypointMarker.getLatLng().lng, waypointMarker.getLatLng().lat], [destMarker.getLatLng().lng, destMarker.getLatLng().lat] ];
-                        else reqCoords = [ [currentLng, currentLat], [destMarker.getLatLng().lng, destMarker.getLatLng().lat] ];
-
+                        if (!destMarker) return alert("地図を直接タップして、目的地（赤いピン）を立ててください。");
+                        btn1.innerText = "通信中... (計算中)"; btn1.disabled = true; if(btn2) { btn2.innerText = "⏳ 計算中..."; btn2.disabled = true; }
+                        let reqCoords = waypointMarker ? [ [currentLng, currentLat], [waypointMarker.getLatLng().lng, waypointMarker.getLatLng().lat], [destMarker.getLatLng().lng, destMarker.getLatLng().lat] ] : [ [currentLng, currentLat], [destMarker.getLatLng().lng, destMarker.getLatLng().lat] ];
                         try {
-                            const response = await fetch('https://api.openrouteservice.org/v2/directions/foot-hiking/geojson', {
-                                method: 'POST',
-                                headers: { 'Accept': 'application/json, application/geo+json, application/gpx+xml, img/png; charset=utf-8', 'Content-Type': 'application/json', 'Authorization': ORS_API_KEY },
-                                body: JSON.stringify({ coordinates: reqCoords })
-                            });
-
-                            if (!response.ok) {
-                                const errData = await response.json();
-                                if (response.status === 429) throw new Error("通信制限(429): 1分間待ってから再度お試しください。");
-                                throw new Error(`サーバー拒否: ${errData.error?.message || response.status}`);
-                            }
-
+                            const response = await fetch('https://api.openrouteservice.org/v2/directions/foot-hiking/geojson', { method: 'POST', headers: { 'Accept': 'application/json, application/geo+json, application/gpx+xml, img/png; charset=utf-8', 'Content-Type': 'application/json', 'Authorization': ORS_API_KEY }, body: JSON.stringify({ coordinates: reqCoords }) });
+                            if (!response.ok) throw new Error(response.status === 429 ? "通信制限(429): 1分間待ってから再度お試しください。" : "サーバー拒否");
                             const data = await response.json();
-                            const routeCoords = data.features[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
-                            window.goalPath.setLatLngs(routeCoords); map.fitBounds(window.goalPath.getBounds());
-                            isTrackingMode = false;
-                            
-                            const actualDistKm = (data.features[0].properties.summary.distance / 1000).toFixed(2);
-                            const actualMins = Math.round(data.features[0].properties.summary.duration / 60);
-                            
-                            if (waypointMarker) alert(`中継地を経由するルート（約${actualDistKm}km / 徒歩約${actualMins}分）を作成しました！`);
-                            else alert(`目的地へのルート（約${actualDistKm}km / 徒歩約${actualMins}分）を作成しました！`);
-                        } catch(err) { alert("【エラー発生】\n" + err.message); } 
-                        finally { btn1.innerText = "目的地までのルートを検索"; btn1.disabled = false; if(btn2) { btn2.innerText = "🔍 ルートを再検索"; btn2.disabled = false; } }
+                            window.goalPath.setLatLngs(data.features[0].geometry.coordinates.map(c => [c[1], c[0]])); map.fitBounds(window.goalPath.getBounds()); isTrackingMode = false;
+                            alert(`${waypointMarker?"中継地を経由する":"目的地への"}ルート（約${(data.features[0].properties.summary.distance / 1000).toFixed(2)}km / 徒歩約${Math.round(data.features[0].properties.summary.duration / 60)}分）を作成しました！`);
+                        } catch(err) { alert("【エラー発生】\n" + err.message); } finally { btn1.innerText = "目的地までのルートを検索"; btn1.disabled = false; if(btn2) { btn2.innerText = "🔍 ルートを再検索"; btn2.disabled = false; } }
                         return;
                     }
 
-                    if (!value || value <= 0) return;
-                    
-                    btn1.innerText = "通信中... (計算中)"; btn1.disabled = true;
-                    if(btn2) { btn2.innerText = "⏳ 計算中..."; btn2.disabled = true; }
-
-                    let distMeters = (type === 'distance' ? value : value * 0.0007) * 1000;
+                    const value = parseFloat(document.getElementById('goal-value').value); if (!value || value <= 0) return;
+                    btn1.innerText = "通信中... (計算中)"; btn1.disabled = true; if(btn2) { btn2.innerText = "⏳ 計算中..."; btn2.disabled = true; }
+                    let distMeters = (document.getElementById('goal-type').value === 'distance' ? value : value * 0.0007) * 1000;
                     let bestData = null, minDiff = Infinity, lastErrorMsg = "";
 
                     try {
                         for (let i = 0; i < 3; i++) {
-                            const randomSeed = Math.floor(Math.random() * 10000);
-                            const response = await fetch('https://api.openrouteservice.org/v2/directions/foot-hiking/geojson', {
-                                method: 'POST',
-                                headers: { 'Accept': 'application/json, application/geo+json, application/gpx+xml, img/png; charset=utf-8', 'Content-Type': 'application/json', 'Authorization': ORS_API_KEY },
-                                body: JSON.stringify({ coordinates: [[currentLng, currentLat]], options: { round_trip: { length: distMeters, points: 3, seed: randomSeed } } })
-                            });
-
-                            if (response.ok) {
-                                const data = await response.json();
-                                const actualDist = data.features[0].properties.summary.distance; 
-                                const diff = Math.abs(actualDist - distMeters); 
-                                if (diff < minDiff) { minDiff = diff; bestData = data; }
-                                if (diff <= distMeters * 0.3 || diff <= 300) break;
-                            } else {
-                                const errData = await response.json();
-                                lastErrorMsg = errData.error?.message || response.status;
-                                if (response.status === 429) throw new Error("通信制限(429): 1分間待ってから再度お試しください。");
-                            }
-                            await new Promise(resolve => setTimeout(resolve, 400));
+                            const response = await fetch('https://api.openrouteservice.org/v2/directions/foot-hiking/geojson', { method: 'POST', headers: { 'Accept': 'application/json, application/geo+json, application/gpx+xml, img/png; charset=utf-8', 'Content-Type': 'application/json', 'Authorization': ORS_API_KEY }, body: JSON.stringify({ coordinates: [[currentLng, currentLat]], options: { round_trip: { length: distMeters, points: 3, seed: Math.floor(Math.random() * 10000) } } }) });
+                            if (response.ok) { const data = await response.json(); const diff = Math.abs(data.features[0].properties.summary.distance - distMeters); if (diff < minDiff) { minDiff = diff; bestData = data; } if (diff <= distMeters * 0.3 || diff <= 300) break; } 
+                            else { const errData = await response.json(); lastErrorMsg = errData.error?.message || response.status; if (response.status === 429) throw new Error("通信制限(429): 1分間待ってから再度お試しください。"); }
+                            await new Promise(r => setTimeout(r, 400));
                         }
-
                         if (!bestData) throw new Error("ルートが見つかりませんでした。\n詳細: " + lastErrorMsg);
-
-                        const routeCoords = bestData.features[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
-                        window.goalPath.setLatLngs(routeCoords); map.fitBounds(window.goalPath.getBounds());
-                        isTrackingMode = false;
-                        
-                        const actualDistKm = (bestData.features[0].properties.summary.distance / 1000).toFixed(2);
-                        const actualMins = Math.round(bestData.features[0].properties.summary.duration / 60);
-                        alert(`散歩道に沿った約${actualDistKm}km (徒歩約${actualMins}分) の周回ルートを作成しました！`);
-
-                    } catch(err) { alert("【エラー発生】\n" + err.message); } 
-                    finally { btn1.innerText = "おすすめルートを検索"; btn1.disabled = false; if(btn2) { btn2.innerText = "🔍 ルートを再検索"; btn2.disabled = false; } }
+                        window.goalPath.setLatLngs(bestData.features[0].geometry.coordinates.map(c => [c[1], c[0]])); map.fitBounds(window.goalPath.getBounds()); isTrackingMode = false;
+                        alert(`散歩道に沿った約${(bestData.features[0].properties.summary.distance / 1000).toFixed(2)}km (徒歩約${Math.round(bestData.features[0].properties.summary.duration / 60)}分) の周回ルートを作成しました！`);
+                    } catch(err) { alert("【エラー発生】\n" + err.message); } finally { btn1.innerText = "おすすめルートを検索"; btn1.disabled = false; if(btn2) { btn2.innerText = "🔍 ルートを再検索"; btn2.disabled = false; } }
                 };
             } catch(e) {}
         };
