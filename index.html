@@ -148,7 +148,7 @@
 
         <div id="tab-walk" class="main-tab-content active">
             <div class="card">
-                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v14.2 PRO版</span></h1>
+                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v14.3 PRO版</span></h1>
                 <div id="wake-lock-status" class="status-off">スリープ防止：OFF (画面タップ)</div>
                 
                 <div style="background: #f0f4f8; padding: 10px; border-radius: 10px; margin-bottom: 15px;">
@@ -481,7 +481,7 @@
             }
         };
 
-        // ★ 記憶システム＋GPS把握を搭載した新AIチャット
+        // ★ 記憶システム＋GPS把握を搭載した新AIチャット (座標推測ハルシネーション修正版)
         window.sendAiChat = async function() {
             const inputElem = document.getElementById('ai-chat-input');
             const userInput = inputElem.value.trim();
@@ -495,24 +495,24 @@
             inputElem.disabled = true; btn.disabled = true;
             msgBox.innerHTML = '<span class="ai-typing">リクエストを処理しています...💭</span>';
 
-            // システムプロンプトにGPS座標と「文脈を読むこと」を指示
+            // システムプロンプト：座標を答えさせるのをやめ、検索用キーワードだけを作らせる
             const systemInstruction = `あなたは以下のキャラクター設定で話します。
 ${getPersonaPrompt()}
 ユーザーからの入力と、これまでの会話の文脈を踏まえて返答してください。
 
 【システム連携データ】
-現在のユーザーのGPS座標は 緯度:${currentLat}, 経度:${currentLng} です。現在地を聞かれたり、周辺の施設を尋ねられた場合はこの座標基準で考えてください。
+現在のユーザーのGPS座標は 緯度:${currentLat}, 経度:${currentLng} です。現在地付近の施設を提案する場合は、この座標周辺を想定してください。
 
 もし「〇〇km歩きたい」「〇〇歩を一周したい」という【周回ルート】の要望なら以下のJSON形式で返して:
 {"type": "loop", "value": 数値, "unit": "km" または "steps", "message": "キャラクター設定に従った返答メッセージ"}
 
-もし「〇〇へ行きたい」「近くの〇〇に行きたい」という【目的地ルート】の要望なら:
-{"type": "dest", "name": "具体的な目的地の名前(現在地の地名等を含めて検索しやすくしてください)", "lat": 緯度(特定できる場合), "lon": 経度(特定できる場合), "message": "キャラクター設定に従った返答メッセージ"}
+もし「〇〇へ行きたい」「近くの〇〇に行きたい」という【目的地ルート】の要望なら、地図検索エンジンに渡すためのキーワードを作成して以下のJSON形式で返して:
+{"type": "dest", "name": "地図検索用キーワード(必ず『東京都西東京市 〇〇』のように現在地の地名を含めてください)", "message": "キャラクター設定に従った返答メッセージ"}
 
 ルート以外の【会話や質問】なら:
 {"type": "chat", "message": "キャラクター設定に従った返答メッセージ"}
 
-出力は、余計なマークダウン（\`\`\`jsonなど）を含めない純粋なJSON文字列のみにしてください。`;
+出力は、余計なマークダウン（\`\`\`jsonなど）を含めない純粋なJSON文字列のみにしてください。決して緯度経度の数値は出力しないでください。`;
 
             // 過去の記憶配列に今回のシステム指示とメッセージを合体
             let apiPayload = chatHistory.map(msg => ({ role: msg.role, parts: [{ text: msg.text }] }));
@@ -551,22 +551,16 @@ ${getPersonaPrompt()}
                     msgBox.innerHTML += `<br><small style="color:#27ae60;">📍 周回ルート（${result.value}${result.unit==='steps'?'歩':'km'}）を自動検索します！</small>`;
                     generateGoalRoute();
                 } else if (result.type === 'dest' && result.name) {
-                    msgBox.innerHTML += `<br><small style="color:#7f8c8d;">📍「${result.name}」の場所をセット中...</small>`;
+                    msgBox.innerHTML += `<br><small style="color:#7f8c8d;">📍「${result.name}」の場所を地図で検索中...</small>`;
                     
-                    let lat = result.lat;
-                    let lon = result.lon;
-
-                    // AIが座標を出せなかった場合はNominatimで検索を補完
-                    if (!lat || !lon) {
-                        const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(result.name)}&countrycodes=jp&limit=1`);
-                        const geoData = await geoRes.json();
-                        if(geoData && geoData.length > 0) {
-                            lat = parseFloat(geoData[0].lat);
-                            lon = parseFloat(geoData[0].lon);
-                        }
-                    }
-
-                    if(lat && lon) {
+                    // AIが作った検索キーワード（例: "東京都西東京市 田無駅"）でNominatimを検索
+                    const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(result.name)}&countrycodes=jp&limit=1`);
+                    const geoData = await geoRes.json();
+                    
+                    if(geoData && geoData.length > 0) {
+                        const lat = parseFloat(geoData[0].lat);
+                        const lon = parseFloat(geoData[0].lon);
+                        
                         document.querySelector('input[name="route-mode"][value="dest"]').checked = true;
                         toggleRouteMode();
                         
@@ -764,7 +758,7 @@ ${getPersonaPrompt()}
                 const real = document.getElementById('realname-input').value;
                 const nick = document.getElementById('nickname-input').value;
                 let displayName = "あなた"; if (nick) displayName = nick; else if (real) displayName = real;
-                document.getElementById('app-title').innerHTML = `${displayName}の健康ログ <span class="version-badge">v14.2 PRO版</span>`;
+                document.getElementById('app-title').innerHTML = `${displayName}の健康ログ <span class="version-badge">v14.3 PRO版</span>`;
 
                 const w = parseFloat(document.getElementById('weight-input').value) || 0;
                 const h = parseFloat(document.getElementById('height-input').value) || 0;
