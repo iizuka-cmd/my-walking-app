@@ -469,7 +469,7 @@
             } finally { btn.disabled = false; }
         };
 
-        // ★ 指揮官の「キーワード判定アイデア」を組み込んだ最強AIルート案内
+        // ★ 指揮官の「キーワード判定ルール」を搭載したAIルート案内
         window.sendAiChat = async function() {
             const inputElem = document.getElementById('ai-chat-input');
             const userInput = inputElem.value.trim();
@@ -552,9 +552,7 @@ ${getPersonaPrompt()}
                             }
                         }
                         
-                        if (isLocal && minDist > 500) {
-                            return null; 
-                        }
+                        if (isLocal && minDist > 500) return null; 
                         return best;
                     }
 
@@ -844,7 +842,16 @@ ${getPersonaPrompt()}
                     
                     sp.lastDate = todayStr; localStorage.setItem('userProfileV7', JSON.stringify(sp));
 
-                    ['realname','nickname','weight','height','gender','dob','targetSteps','goalMode'].forEach(k => { if(sp[k]) document.getElementById(k+'-input').value = sp[k]; });
+                    // ★ 修正箇所：安全な元のコードに完全に戻しました
+                    if (sp.realname) document.getElementById('realname-input').value = sp.realname;
+                    if (sp.nickname) document.getElementById('nickname-input').value = sp.nickname;
+                    if (sp.weight) document.getElementById('weight-input').value = sp.weight;
+                    if (sp.height) document.getElementById('height-input').value = sp.height;
+                    if (sp.gender) document.getElementById('gender-input').value = sp.gender;
+                    if (sp.dob) document.getElementById('dob-input').value = sp.dob;
+                    if (sp.targetSteps) document.getElementById('target-steps-input').value = sp.targetSteps;
+                    if (sp.goalMode) document.getElementById('goal-mode').value = sp.goalMode;
+
                     if (sp.meals) { const sv = (p, a) => { document.getElementById(p+'-cal').value = a[0]||''; document.getElementById(p+'-p').value = a[1]||''; document.getElementById(p+'-f').value = a[2]||''; document.getElementById(p+'-c').value = a[3]||''; document.getElementById(p+'-s').value = a[4]||''; };
                         if(sp.meals.bf) sv('bf', sp.meals.bf); if(sp.meals.lu) sv('lu', sp.meals.lu); if(sp.meals.dn) sv('dn', sp.meals.dn); if(sp.meals.sn) sv('sn', sp.meals.sn); }
                     if (sp.todayLogs) { todayFoodLogs = sp.todayLogs; renderFoodLogs('bf'); renderFoodLogs('lu'); renderFoodLogs('dn'); renderFoodLogs('sn'); }
