@@ -51,6 +51,11 @@
         button.action-btn:disabled { background: #95a5a6; cursor: not-allowed; }
         button.save-btn { background: #27ae60; font-size: 1.1em; padding: 15px; }
         
+        .route-mode-box { display: flex; gap: 10px; background: #eef2f7; padding: 10px; border-radius: 10px; margin-bottom: 10px; }
+        .route-mode-box label { flex: 1; text-align: center; font-weight: bold; font-size: 0.9em; cursor: pointer; padding: 5px; border-radius: 5px; border: 1px solid transparent; }
+        .route-mode-box input[type="radio"] { display: none; }
+        .route-mode-box input[type="radio"]:checked + span { color: #3498db; border-bottom: 2px solid #3498db; padding-bottom: 2px; }
+
         details { background: #f8f9fa; padding: 10px; border-radius: 10px; margin-bottom: 10px; border: 1px solid #eee; }
         summary { font-weight: bold; cursor: pointer; outline: none; padding: 5px 0; }
         .profile-row { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
@@ -142,7 +147,7 @@
 
         <div id="tab-walk" class="main-tab-content active">
             <div class="card">
-                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v14.6 PRO版</span></h1>
+                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v14.7 PRO版</span></h1>
                 <div id="wake-lock-status" class="status-off">スリープ防止：OFF (画面タップ)</div>
                 
                 <div style="background: #f0f4f8; padding: 15px; border-radius: 10px; margin-bottom: 15px; text-align: center;">
@@ -374,7 +379,6 @@
         let chatHistory = [];
         const MAX_HISTORY = 6;
 
-        // ★ 距離計算用関数（メートル単位で計算）
         function getDistance(lat1, lon1, lat2, lon2) {
             const R = 6371e3; 
             const p1 = lat1 * Math.PI/180;
@@ -465,7 +469,7 @@
             } finally { btn.disabled = false; }
         };
 
-        // ★ AIルート案内（500mレーダー搭載・ハルシネーション完全防止版）
+        // ★ 指揮官の「キーワード判定アイデア」を組み込んだ最強AIルート案内
         window.sendAiChat = async function() {
             const inputElem = document.getElementById('ai-chat-input');
             const userInput = inputElem.value.trim();
@@ -490,7 +494,7 @@ ${getPersonaPrompt()}
 {"type": "loop", "value": 数値, "unit": "km" または "steps", "message": "キャラクター設定に従った返答メッセージ"}
 
 もし「〇〇へ行きたい」「近くの〇〇に行きたい」「〇〇を経由して〇〇に行きたい」という【目的地ルート】の要望なら、地図検索エンジンに渡すためのキーワードを作成して返して:
-{"type": "dest", "name": "最終目的地の検索キーワード（※『ファミリーマート西東京泉町店』のように細かい支店名まで入れると検索に失敗します。必ず『西東京市 ファミリーマート』や『西東京市 泉町 ファミリーマート』のように【市区町村名などの地名】と【施設名】をスペースで区切ったシンプルなものにしてください）", "waypoint": "もし『〇〇を経由して』など中継地の指定があればその検索キーワード。なければ空文字", "search_range": "local" (現在地周辺のコンビニや公園等を探す場合) または "global" (新宿区役所など遠くの特定の場所の場合), "message": "キャラクター設定に従った返答メッセージ"}
+{"type": "dest", "name": "最終目的地の検索キーワード（※『ファミリーマート西東京泉町店』のように細かい支店名まで入れると検索に失敗します。必ず『西東京市 ファミリーマート』や『西東京市 泉町 ファミリーマート』のように【市区町村名などの地名】と【施設名】をスペースで区切ったシンプルなものにしてください）", "waypoint": "もし『〇〇を経由して』など中継地の指定があればその検索キーワード。なければ空文字", "search_range": "ユーザーの入力に『近くの』『最寄りの』『周辺の』といった言葉が含まれている場合、または『コンビニ』『公園』等の一般名詞のみの場合は 'local' を指定。逆に『田無駅』『〇〇市役所』『〇〇店』など具体的な固有名詞がある場合は必ず 'global' を指定", "message": "キャラクター設定に従った返答メッセージ"}
 
 ルート以外の【会話や質問】なら:
 {"type": "chat", "message": "キャラクター設定に従った返答メッセージ"}
@@ -529,9 +533,7 @@ ${getPersonaPrompt()}
                 } else if (result.type === 'dest' && result.name) {
                     msgBox.innerHTML += `<br><small style="color:#7f8c8d;">📍 場所を地図で検索中...</small>`;
                     
-                    // ★ 距離計算と500m制限機能を持つ新しい検索エンジン
                     async function searchLocation(query, isLocal) {
-                        // 検索結果を多めに取得（10件）
                         const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=10`);
                         const geoData = await geoRes.json();
                         if (!geoData || geoData.length === 0) return null;
@@ -544,21 +546,18 @@ ${getPersonaPrompt()}
                             const lon = parseFloat(item.lon);
                             const d = getDistance(currentLat, currentLng, lat, lon);
                             
-                            // 全ての候補の中で一番現在地に近いものを探す
                             if (d < minDist) {
                                 minDist = d;
                                 best = item;
                             }
                         }
                         
-                        // ローカル検索（周辺検索）のフラグが立っており、かつ一番近い候補でも500mより遠い場合は見つからなかったと判定
                         if (isLocal && minDist > 500) {
                             return null; 
                         }
                         return best;
                     }
 
-                    // 検索実行
                     let destItem = await searchLocation(result.name, result.search_range === "local");
                     let wayItem = result.waypoint ? await searchLocation(result.waypoint, result.search_range === "local") : null;
 
@@ -590,7 +589,6 @@ ${getPersonaPrompt()}
                         msgBox.innerHTML = result.message + `<br><small style="color:#27ae60;">📍 地図にセットし、ルートを計算します！</small>`;
                         generateGoalRoute();
                     } else {
-                        // 見つからなかった場合のエラーメッセージ出し分け
                         if (result.search_range === "local") {
                             msgBox.innerHTML = result.message + `<br><small style="color:#e74c3c;">⚠️ 周辺（半径500m以内）に見つかりませんでした。</small>`;
                         } else {
@@ -717,7 +715,7 @@ ${getPersonaPrompt()}
             try {
                 const real = document.getElementById('realname-input').value;
                 const nick = document.getElementById('nickname-input').value;
-                document.getElementById('app-title').innerHTML = `${nick||real||"あなた"}の健康ログ <span class="version-badge">v14.6 PRO版</span>`;
+                document.getElementById('app-title').innerHTML = `${nick||real||"あなた"}の健康ログ <span class="version-badge">v14.7 PRO版</span>`;
 
                 const w = parseFloat(document.getElementById('weight-input').value) || 0;
                 const h = parseFloat(document.getElementById('height-input').value) || 0;
