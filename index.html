@@ -147,7 +147,7 @@
 
         <div id="tab-walk" class="main-tab-content active">
             <div class="card">
-                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v14.8 PRO版</span></h1>
+                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v14.9 PRO版</span></h1>
                 <div id="wake-lock-status" class="status-off">スリープ防止：OFF (画面タップ)</div>
                 
                 <div style="background: #f0f4f8; padding: 15px; border-radius: 10px; margin-bottom: 15px; text-align: center;">
@@ -617,12 +617,11 @@ ${getPersonaPrompt()}
             todayFoodLogs[mealType].forEach(item => {
                 const div = document.createElement('div');
                 div.className = 'food-log-item';
-                div.innerHTML = `<span style="flex:1;"><strong>${item.name}</strong><br><small>${item.kcal}kcal / P:${item.p} F:${item.f} C:${item.c}</small></span><button onclick="removeFoodItem('${mealType}', ${item.id})">✖ 削除</button>`;
+                div.innerHTML = `<span style="flex:1;"><strong>${item.name}</strong><br><small>${item.kcal}kcal / P:${item.p} F:${item.f} C:${item.c} 塩:${item.s}</small></span><button onclick="removeFoodItem('${mealType}', ${item.id})">✖ 削除</button>`;
                 container.appendChild(div);
             });
         };
 
-        // ★ 修正箇所：安全なコードに完全に戻しました（-calの計算エラーを解消）
         window.removeFoodItem = function(mealType, id) {
             const idx = todayFoodLogs[mealType].findIndex(item => item.id === id);
             if(idx > -1) {
@@ -645,7 +644,6 @@ ${getPersonaPrompt()}
             }
         };
 
-        // ★ 修正箇所：安全なコードに完全に戻しました（-calの計算エラーを解消）
         window.addNutritionToMeal = function(mealType, resultObj, foodName = "手動追加アイテム") {
             const logItem = { id: Date.now(), name: foodName, ...resultObj };
             todayFoodLogs[mealType].push(logItem);
@@ -666,6 +664,7 @@ ${getPersonaPrompt()}
             calcAll();
         };
 
+        // ★ 修正箇所：AIへの指示文（プロンプト）を丁寧な形に戻しました
         window.handleTextFood = async function(mealType) {
             const inputElem = document.getElementById(mealType + '-food-text');
             const foodName = inputElem.value.trim();
@@ -683,7 +682,9 @@ ${getPersonaPrompt()}
             const originalText = btn.innerText; btn.innerText = "⏳ 検索中..."; btn.disabled = true;
 
             try {
-                const prompt = `食品「${foodName}」の一般的な栄養成分を推定し、JSON形式で抽出してください。単位不要。{ "kcal": 0, "p": 0, "f": 0, "c": 0, "s": 0 }`;
+                const prompt = `食品「${foodName}」の一般的な栄養成分を推定し、以下のJSON形式で数値を抽出してください。単位やマークダウンは不要です。
+{ "kcal": カロリーの数値, "p": タンパク質の数値, "f": 脂質の数値, "c": 炭水化物の数値, "s": 食塩相当量の数値 }
+不明な項目は0にしてください。`;
                 const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${GEMINI_API_KEY.trim()}`, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } })
@@ -702,6 +703,7 @@ ${getPersonaPrompt()}
             } catch (err) { alert("検索失敗: " + err.message); } finally { btn.innerText = originalText; btn.disabled = false; inputElem.value = ""; }
         };
 
+        // ★ 修正箇所：AIへの指示文（プロンプト）を丁寧な形に戻しました
         window.handleImageUpload = async function(mealType, inputElem) {
             const file = inputElem.files[0]; if (!file) return;
             let GEMINI_API_KEY = localStorage.getItem('geminiApiKey');
@@ -712,7 +714,9 @@ ${getPersonaPrompt()}
 
             try {
                 const base64Data = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result.split(',')[1]); reader.onerror = error => reject(error); reader.readAsDataURL(file); });
-                const prompt = `画像から栄養成分を読み取りJSONで抽出。単位不要。{ "kcal": 0, "p": 0, "f": 0, "c": 0, "s": 0 }`;
+                const prompt = `画像から栄養成分表示を読み取り、以下のJSON形式で数値を抽出してください。単位やマークダウンは不要です。
+{ "kcal": カロリーの数値, "p": タンパク質の数値, "f": 脂質の数値, "c": 炭水化物の数値, "s": 食塩相当量の数値 }
+見つからない項目は0にしてください。`;
                 const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${GEMINI_API_KEY.trim()}`, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ contents: [{ parts: [ { text: prompt }, { inlineData: { mimeType: file.type, data: base64Data } } ] }], generationConfig: { responseMimeType: "application/json" } })
@@ -731,7 +735,7 @@ ${getPersonaPrompt()}
             try {
                 const real = document.getElementById('realname-input').value;
                 const nick = document.getElementById('nickname-input').value;
-                document.getElementById('app-title').innerHTML = `${nick||real||"あなた"}の健康ログ <span class="version-badge">v14.8 PRO版</span>`;
+                document.getElementById('app-title').innerHTML = `${nick||real||"あなた"}の健康ログ <span class="version-badge">v14.9 PRO版</span>`;
 
                 const w = parseFloat(document.getElementById('weight-input').value) || 0;
                 const h = parseFloat(document.getElementById('height-input').value) || 0;
