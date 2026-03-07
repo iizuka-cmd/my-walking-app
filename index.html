@@ -147,7 +147,7 @@
 
         <div id="tab-walk" class="main-tab-content active">
             <div class="card">
-                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v14.7 PRO版</span></h1>
+                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v14.8 PRO版</span></h1>
                 <div id="wake-lock-status" class="status-off">スリープ防止：OFF (画面タップ)</div>
                 
                 <div style="background: #f0f4f8; padding: 15px; border-radius: 10px; margin-bottom: 15px; text-align: center;">
@@ -469,7 +469,6 @@
             } finally { btn.disabled = false; }
         };
 
-        // ★ 指揮官の「キーワード判定ルール」を搭載したAIルート案内
         window.sendAiChat = async function() {
             const inputElem = document.getElementById('ai-chat-input');
             const userInput = inputElem.value.trim();
@@ -623,28 +622,47 @@ ${getPersonaPrompt()}
             });
         };
 
+        // ★ 修正箇所：安全なコードに完全に戻しました（-calの計算エラーを解消）
         window.removeFoodItem = function(mealType, id) {
             const idx = todayFoodLogs[mealType].findIndex(item => item.id === id);
             if(idx > -1) {
                 const item = todayFoodLogs[mealType][idx];
                 todayFoodLogs[mealType].splice(idx, 1);
-                const ids = ['-cal','-p','-f','-c','-s'];
-                ids.forEach(ext => {
-                    const el = document.getElementById(mealType+ext);
-                    el.value = Math.max(0, (parseFloat(el.value)||0) - item[ext.replace('-','')]).toFixed(ext==='-cal'?0:1);
-                });
+                
+                const cCal = parseFloat(document.getElementById(mealType+'-cal').value) || 0;
+                const cP = parseFloat(document.getElementById(mealType+'-p').value) || 0;
+                const cF = parseFloat(document.getElementById(mealType+'-f').value) || 0;
+                const cC = parseFloat(document.getElementById(mealType+'-c').value) || 0;
+                const cS = parseFloat(document.getElementById(mealType+'-s').value) || 0;
+
+                document.getElementById(mealType+'-cal').value = Math.max(0, cCal - item.kcal);
+                document.getElementById(mealType+'-p').value = Math.max(0, cP - item.p).toFixed(1);
+                document.getElementById(mealType+'-f').value = Math.max(0, cF - item.f).toFixed(1);
+                document.getElementById(mealType+'-c').value = Math.max(0, cC - item.c).toFixed(1);
+                document.getElementById(mealType+'-s').value = Math.max(0, cS - item.s).toFixed(1);
+                
                 calcAll(); renderFoodLogs(mealType);
             }
         };
 
+        // ★ 修正箇所：安全なコードに完全に戻しました（-calの計算エラーを解消）
         window.addNutritionToMeal = function(mealType, resultObj, foodName = "手動追加アイテム") {
-            todayFoodLogs[mealType].push({ id: Date.now(), name: foodName, ...resultObj });
+            const logItem = { id: Date.now(), name: foodName, ...resultObj };
+            todayFoodLogs[mealType].push(logItem);
             renderFoodLogs(mealType);
-            const ids = ['-cal','-p','-f','-c','-s'];
-            ids.forEach(ext => {
-                const el = document.getElementById(mealType+ext);
-                el.value = ((parseFloat(el.value)||0) + (resultObj[ext.replace('-','')])) .toFixed(ext==='-cal'?0:1);
-            });
+
+            const currentKcal = parseFloat(document.getElementById(mealType + '-cal').value) || 0;
+            const currentP = parseFloat(document.getElementById(mealType + '-p').value) || 0;
+            const currentF = parseFloat(document.getElementById(mealType + '-f').value) || 0;
+            const currentC = parseFloat(document.getElementById(mealType + '-c').value) || 0;
+            const currentS = parseFloat(document.getElementById(mealType + '-s').value) || 0;
+
+            document.getElementById(mealType + '-cal').value = currentKcal + (resultObj.kcal || 0);
+            document.getElementById(mealType + '-p').value = (currentP + (resultObj.p || 0)).toFixed(1);
+            document.getElementById(mealType + '-f').value = (currentF + (resultObj.f || 0)).toFixed(1);
+            document.getElementById(mealType + '-c').value = (currentC + (resultObj.c || 0)).toFixed(1);
+            document.getElementById(mealType + '-s').value = (currentS + (resultObj.s || 0)).toFixed(1);
+            
             calcAll();
         };
 
@@ -713,7 +731,7 @@ ${getPersonaPrompt()}
             try {
                 const real = document.getElementById('realname-input').value;
                 const nick = document.getElementById('nickname-input').value;
-                document.getElementById('app-title').innerHTML = `${nick||real||"あなた"}の健康ログ <span class="version-badge">v14.7 PRO版</span>`;
+                document.getElementById('app-title').innerHTML = `${nick||real||"あなた"}の健康ログ <span class="version-badge">v14.8 PRO版</span>`;
 
                 const w = parseFloat(document.getElementById('weight-input').value) || 0;
                 const h = parseFloat(document.getElementById('height-input').value) || 0;
@@ -842,7 +860,6 @@ ${getPersonaPrompt()}
                     
                     sp.lastDate = todayStr; localStorage.setItem('userProfileV7', JSON.stringify(sp));
 
-                    // ★ 修正箇所：安全な元のコードに完全に戻しました
                     if (sp.realname) document.getElementById('realname-input').value = sp.realname;
                     if (sp.nickname) document.getElementById('nickname-input').value = sp.nickname;
                     if (sp.weight) document.getElementById('weight-input').value = sp.weight;
