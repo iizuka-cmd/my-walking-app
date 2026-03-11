@@ -66,9 +66,9 @@
         .result-good { color: #27ae60; } .result-bad { color: #e74c3c; }
         
         .chart-tabs { display: flex; gap: 5px; margin-bottom: 10px; }
-        .chart-tab-btn { flex: 1; padding: 8px; border-radius: 5px; border: 1px solid #ccc; background: #f0f4f8; font-size: 0.9em; }
+        .chart-tab-btn { flex: 1; padding: 8px; border-radius: 5px; border: 1px solid #ccc; background: #f0f4f8; font-size: 0.9em; cursor: pointer; }
         .chart-tab-btn.active { background: #3498db; color: white; border-color: #2980b9; font-weight: bold; }
-        .history-item { background: white; padding: 12px; border-radius: 10px; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border-left: 5px solid #27ae60; font-size: 0.85em; }
+        .history-item { background: white; padding: 12px; border-radius: 10px; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border-left: 5px solid #27ae60; font-size: 0.85em; line-height: 1.5; }
         #wake-lock-status { font-size: 0.8em; text-align: center; padding: 5px; border-radius: 20px; margin-bottom: 10px; }
         .status-on { background: #d4edda; color: #155724; } .status-off { background: #f8d7da; color: #721c24; }
 
@@ -109,7 +109,6 @@
         .pfc-bar-bg { background: #eef2f7; border-radius: 5px; height: 12px; overflow: hidden; width: 100%; }
         .pfc-bar-fg { height: 100%; transition: width 0.4s ease; border-radius: 5px; }
 
-        /* ★追加：編集ポップアップ用のCSS */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); z-index: 100000; justify-content: center; align-items: center; }
         .modal-content { background: white; padding: 20px; border-radius: 12px; width: 90%; max-width: 400px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
         .modal-content h3 { margin-top: 0; margin-bottom: 15px; border-bottom: 2px solid #3498db; padding-bottom: 5px; font-size: 1.1em; }
@@ -156,7 +155,7 @@
 
         <div id="tab-walk" class="main-tab-content active">
             <div class="card">
-                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v14.10 PRO版</span></h1>
+                <h1 id="app-title">あなたの健康ログ <span class="version-badge">v14.11 PRO版</span></h1>
                 <div id="wake-lock-status" class="status-off">スリープ防止：OFF (画面タップ)</div>
                 
                 <div style="background: #f0f4f8; padding: 15px; border-radius: 10px; margin-bottom: 15px; text-align: center;">
@@ -367,8 +366,7 @@
                 <h2 style="margin-top:0;">📊 カラダの変化グラフ</h2>
                 <div class="chart-tabs">
                     <button id="tab-weight" class="chart-tab-btn active" onclick="switchGraph('weight')">体重</button>
-                    <button id="tab-bmi" class="chart-tab-btn" onclick="switchGraph('bmi')">BMI</button>
-                    <button id="tab-bmr" class="chart-tab-btn" onclick="switchGraph('bmr')">基礎代謝</button>
+                    <button id="tab-steps" class="chart-tab-btn" onclick="switchGraph('steps')">歩数</button>
                 </div>
                 <div style="background: white; padding: 5px; border-radius: 10px; border: 1px solid #ddd;">
                     <canvas id="healthChart"></canvas>
@@ -496,7 +494,6 @@
             return `あなたはAIコンシェルジュです。ユーザーを「${userName}」と呼び、親切にサポートしてください。`;
         }
 
-        // ★追加箇所：時間帯を考慮したAIアドバイス
         window.getAiAdvice = async function() {
             const msgBox = document.getElementById('ai-message');
             const btn = document.getElementById('ai-btn');
@@ -669,7 +666,6 @@ ${getPersonaPrompt()}
             }
         };
 
-        // ★追加箇所：食事の修正ボタンを追加
         window.renderFoodLogs = function(mealType) {
             const container = document.getElementById(mealType + '-log');
             if(!container) return;
@@ -768,7 +764,6 @@ ${getPersonaPrompt()}
             } catch (err) { alert("検索失敗: " + err.message); } finally { btn.innerText = originalText; btn.disabled = false; inputElem.value = ""; }
         };
 
-        // ★追加箇所：新しいスキャン機能用の変数と関数
         let scanImagesData = {
             bf: { nameMime: null, nameData: null, nutMime: null, nutData: null },
             lu: { nameMime: null, nameData: null, nutMime: null, nutData: null },
@@ -843,10 +838,8 @@ ${getPersonaPrompt()}
                     s: parseFloat(result.s)||0 
                 };
                 
-                // 解析結果をポップアップで開く
                 openEditModal(mealType, null, safeResult);
                 
-                // データをリセット
                 scanImagesData[mealType] = { nameMime: null, nameData: null, nutMime: null, nutData: null };
                 updateScanStatus(mealType);
 
@@ -857,7 +850,6 @@ ${getPersonaPrompt()}
             }
         };
 
-        // ★追加箇所：編集とスキャン確認兼用のポップアップ処理
         let currentEditMode = 'edit';
 
         window.openEditModal = function(type, id = null, scanResult = null) {
@@ -931,7 +923,6 @@ ${getPersonaPrompt()}
                 addNutritionToMeal(type, { kcal: newKcal, p: newP, f: newF, c: newC, s: newS }, nameStr);
             }
 
-            // ★ データベースへの記憶更新
             foodDatabase[nameStr] = { kcal: newKcal, p: newP, f: newF, c: newC, s: newS };
             localStorage.setItem('foodDatabase', JSON.stringify(foodDatabase));
             updateFoodDatalist();
@@ -947,7 +938,7 @@ ${getPersonaPrompt()}
             try {
                 const real = document.getElementById('realname-input').value;
                 const nick = document.getElementById('nickname-input').value;
-                document.getElementById('app-title').innerHTML = `${nick||real||"あなた"}の健康ログ <span class="version-badge">v14.10 PRO版</span>`;
+                document.getElementById('app-title').innerHTML = `${nick||real||"あなた"}の健康ログ <span class="version-badge">v14.11 PRO版</span>`;
 
                 const w = parseFloat(document.getElementById('weight-input').value) || 0;
                 const h = parseFloat(document.getElementById('height-input').value) || 0;
@@ -987,7 +978,6 @@ ${getPersonaPrompt()}
                 const balance = tCal - (bmr + activeCal);
                 const balDiv = document.getElementById('balance-result');
                 
-                // ★追加箇所：時間帯による警告の緩和
                 const currentHour = new Date().getHours();
                 let minAllowed = -500;
                 if (currentHour < 11) minAllowed = -2000; 
@@ -1152,13 +1142,14 @@ ${getPersonaPrompt()}
                 document.body.addEventListener('click', requestWakeLock);
             } catch(e) {}
 
+            // ★変更箇所：グラフの切り替え機能に「歩数」を追加し、BMI等を削除
             window.renderGraph = function() {
                 try {
                     let history = JSON.parse(localStorage.getItem('walkingHistory')) || []; let graphData = [...history].reverse(); let labels = graphData.map(item => item.date);
                     let dataPoints = [], lineColor = "", labelName = "";
                     if (window.currentGraphMode === 'weight') { dataPoints = graphData.map(i => parseFloat(i.weight)||0); labelName = "体重(kg)"; lineColor = "#3498db"; }
-                    else if (window.currentGraphMode === 'bmi') { dataPoints = graphData.map(i => parseFloat(i.bmi)||0); labelName = "BMI"; lineColor = "#9b59b6"; }
-                    else if (window.currentGraphMode === 'bmr') { dataPoints = graphData.map(i => parseFloat(i.bmr)||0); labelName = "基礎代謝"; lineColor = "#e67e22"; }
+                    else if (window.currentGraphMode === 'steps') { dataPoints = graphData.map(i => parseInt(i.steps)||0); labelName = "歩数(歩)"; lineColor = "#27ae60"; }
+                    
                     if (myChart) myChart.destroy();
                     myChart = new Chart(document.getElementById('healthChart').getContext('2d'), { type: 'line', data: { labels: labels, datasets: [{ label: labelName, data: dataPoints, borderColor: lineColor, backgroundColor: lineColor, borderWidth: 2, tension: 0, pointRadius: 4, pointBackgroundColor: '#fff' }] }, options: { responsive: true, plugins: { legend: { display: false } } } });
                 } catch(e) {}
@@ -1175,8 +1166,32 @@ ${getPersonaPrompt()}
                 } catch(e) {}
             };
 
+            // ★変更箇所：表示順の変更と、直近1週間の折りたたみ機能を実装
             window.displayHistory = function() {
-                try { document.getElementById('history-list').innerHTML = (JSON.parse(localStorage.getItem('walkingHistory')) || []).map(item => `<div class="history-item"><strong style="font-size: 1.1em; color:#2c3e50;">${item.date}</strong><br>🚶‍♂️ ${item.steps !== "不明" ? Number(item.steps).toLocaleString() : "不明"}歩 / 🔥 運動消費: ${item.calories}kcal<br>🍽️ 摂取: ${item.inCal||0}kcal (P:${item.p||0} F:${item.f||0} C:${item.c||0})<br>⚖️ 体重: ${item.weight||'--'}kg / 📈 バランス: <strong>${item.balance||'--'}</strong></div>`).join(''); } catch(e) {}
+                try { 
+                    const history = JSON.parse(localStorage.getItem('walkingHistory')) || [];
+                    
+                    const formatItem = (item) => `
+                        <div class="history-item">
+                            <strong style="font-size: 1.1em; color:#2c3e50;">${item.date}</strong><br>
+                            🚶‍♂️ ${item.steps !== undefined && item.steps !== "不明" ? Number(item.steps).toLocaleString() : 0}歩 / 🍽️ 摂取: ${item.inCal !== undefined ? item.inCal : 0}kcal<br>
+                            ⚖️ バランス: <strong>${item.balance || '---'}</strong> / 👤 体重: ${item.weight || '--'}kg
+                        </div>
+                    `;
+                    
+                    const recent = history.slice(0, 7);
+                    const older = history.slice(7);
+                    
+                    let html = recent.map(formatItem).join('');
+                    
+                    if (older.length > 0) {
+                        html += `<details><summary style="margin-top:10px; cursor:pointer; color:#3498db; font-weight:bold; font-size:0.9em; padding:10px; background:#eef2f7; border-radius:8px; text-align:center;">以前の履歴（1週間より前）を表示 ▼</summary><div style="margin-top:10px;">`;
+                        html += older.map(formatItem).join('');
+                        html += `</div></details>`;
+                    }
+
+                    document.getElementById('history-list').innerHTML = html;
+                } catch(e) {}
             };
             displayHistory(); renderGraph();
 
