@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>マイウォーキングアプリ v14.13 PRO</title>
+    <title>マイウォーキングアプリ v14.14 PRO (AI復元版)</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -16,7 +16,7 @@
         body { font-family: sans-serif; margin: 0; padding: 0; background-color: #f0f4f8; color: #333; padding-bottom: 80px; }
         .container { max-width: 600px; margin: auto; padding: 15px; }
         .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 15px; }
-        h1 { font-size: 1.2em; margin: 0; border-bottom: 2px solid #27ae60; padding-bottom: 5px; }
+        h1 { font-size: 1.2em; margin: 0; border-bottom: 2px solid #e74c3c; padding-bottom: 5px; }
         .version-badge { background: #e74c3c; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.6em; float: right; }
         .main-tab-content { display: none; }
         .main-tab-content.active { display: block; }
@@ -27,46 +27,27 @@
         .data-item { background: #eef2f7; padding: 10px; border-radius: 10px; text-align: center; }
         .data-value { font-size: 1.4em; font-weight: bold; color: #3498db; }
         
-        #map-container { position: relative; margin-bottom: 15px; }
-        #map { height: 320px; width: 100%; border-radius: 15px; border: 2px solid #ddd; z-index: 1; background: #f9f9f9; }
-        #normal-fullscreen-btn { position: absolute; top: 10px; right: 10px; z-index: 1000; padding: 8px 12px; background: white; border: 2px solid #ccc; border-radius: 8px; font-weight: bold; }
-        
-        #map-container.is-fullscreen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 10000; margin: 0; background: white; }
+        #map { height: 320px; width: 100%; border-radius: 15px; border: 2px solid #ddd; background: #f9f9f9; }
+        #map-container.is-fullscreen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 10000; background: white; }
         #map-container.is-fullscreen #map { height: 100vh !important; border-radius: 0; }
         
-        #fullscreen-controls { display: none; }
-        #map-container.is-fullscreen #fullscreen-controls {
-            display: flex; flex-direction: column; gap: 8px; position: absolute; top: calc(env(safe-area-inset-top, 40px) + 10px); 
-            left: 50%; transform: translateX(-50%); z-index: 10001; width: 92%; max-width: 400px;
-            background: rgba(255, 255, 255, 0.95); padding: 12px; border-radius: 12px; box-shadow: 0 6px 15px rgba(0,0,0,0.3);
-        }
-        .fs-btn-row { display: flex; gap: 6px; width: 100%; margin-top: 5px; }
-        #fullscreen-controls button { flex: 1; padding: 12px 0px; font-size: 0.85em; font-weight: bold; border: none; border-radius: 8px; color: white; cursor: pointer; }
-
-        input, select { padding: 8px; border-radius: 5px; border: 1px solid #ccc; font-size: 1em; width: 100%; box-sizing: border-box; }
+        input, select, textarea { padding: 8px; border-radius: 5px; border: 1px solid #ccc; font-size: 1em; width: 100%; box-sizing: border-box; }
         button.action-btn { width: 100%; padding: 12px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; color: white; margin-top: 10px; }
         details { background: #f8f9fa; padding: 10px; border-radius: 10px; margin-bottom: 10px; border: 1px solid #eee; }
         summary { font-weight: bold; cursor: pointer; padding: 5px 0; display: flex; justify-content: space-between; align-items: center; }
         .profile-row { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; gap: 10px; font-size: 0.9em; }
-        
         .meal-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin-top: 10px; text-align: center; font-size: 0.6em; }
-        .meal-grid input { padding: 5px; font-size: 1em; text-align: center; }
-        
         .food-log-item { display: flex; justify-content: space-between; align-items: center; background: #fff; border: 1px solid #ddd; padding: 6px 10px; border-radius: 5px; font-size: 0.85em; margin-bottom: 5px; }
-        .food-log-item button { background: #e74c3c; color: white; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer; }
         .pfc-container { margin-top: 15px; padding: 12px; background: #fff; border-radius: 10px; border: 1px solid #ddd; }
         .pfc-bar-bg { background: #eef2f7; border-radius: 5px; height: 12px; width: 100%; overflow: hidden; margin-bottom: 8px; }
         .pfc-bar-fg { height: 100%; width: 0%; transition: width 0.4s ease; }
-        .balance-box { background: #fff3cd; border: 2px solid #ffeeba; padding: 15px; border-radius: 10px; text-align: center; margin-top: 15px; }
-        
         .summary-val { font-size: 0.9em; color: #27ae60; font-weight: bold; margin-left: auto; margin-right: 10px; }
-
         .history-card { border-left: 5px solid #27ae60; background: #fff; border-radius: 8px; padding: 12px; margin-bottom: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border: 1px solid #eee; }
-        .history-date { font-weight: bold; color: #2c3e50; font-size: 1.1em; margin-bottom: 6px; }
         .history-row { display: flex; align-items: center; gap: 4px; font-size: 0.82em; color: #555; margin-bottom: 4px; white-space: nowrap; overflow: hidden; }
-        .graph-toggle-area { display: flex; gap: 5px; margin-bottom: 10px; }
-        .toggle-btn { flex: 1; padding: 10px 0; border: 1px solid #ddd; background: #ecf0f1; color: #7f8c8d; font-weight: bold; border-radius: 6px; cursor: pointer; }
-        .toggle-btn.active { background: #3498db; color: white; border-color: #3498db; }
+
+        /* ✨ AIアドバイザー用スタイル */
+        #ai-advice-box { background: #fff5f5; border: 2px solid #feb2b2; padding: 15px; border-radius: 10px; margin-top: 15px; display: none; }
+        .ai-chat-bubble { background: #edf2f7; padding: 10px; border-radius: 10px; margin-bottom: 10px; font-size: 0.9em; line-height: 1.4; }
     </style>
 </head>
 <body>
@@ -74,7 +55,7 @@
     <div class="container">
         <div id="tab-walk" class="main-tab-content active">
             <div class="card">
-                <h1>健康ログ <span class="version-badge">v14.13 PRO</span></h1>
+                <h1>健康ログ <span class="version-badge">v14.14 PRO</span></h1>
                 <div style="display: flex; gap: 10px; margin-top: 15px; margin-bottom: 15px;">
                     <button class="action-btn" style="background:#8e44ad; margin:0; flex:1;" onclick="openMapMode('loop')">🔄 周回ルート</button>
                     <button class="action-btn" style="background:#e67e22; margin:0; flex:1;" onclick="openMapMode('dest')">📍 目的地へ</button>
@@ -84,19 +65,8 @@
                     <div class="data-item">運動消費<br><span id="calories-display" class="data-value" style="color: #16a085;">0</span> kcal</div>
                 </div>
                 <div id="map-container">
-                    <button id="normal-fullscreen-btn" onclick="openMapMode('loop')">🗺️ 地図を拡大</button>
                     <div id="map"></div>
-                    <div id="fullscreen-controls">
-                        <div id="wake-lock-status" style="display:none; font-size:0.75em; text-align:center; color:#155724; background:#d4edda; padding:4px; border-radius:4px;">スリープ防止：ON</div>
-                        <div style="display:flex; gap:10px; background:#eef2f7; padding:6px; border-radius:8px; margin-bottom:8px;">
-                            <label style="flex:1; text-align:center;"><input type="radio" name="fs-route-mode" value="loop" checked onchange="updateFsUI()"> 🔄周回</label>
-                            <label style="flex:1; text-align:center;"><input type="radio" name="fs-route-mode" value="dest" onchange="updateFsUI()"> 📍目的地</label>
-                        </div>
-                        <div id="fs-distance-input-area" style="display: flex; gap: 8px;"><select id="goal-type"><option value="distance">距離 (km)</option></select><input type="number" id="goal-value" value="1" step="0.5" style="text-align:center;"></div>
-                        <div id="fs-dest-hint" style="display:none; text-align:center; font-size:0.85em; color:#e74c3c;">地図をタップして目的地を選択</div>
-                        <button style="background:#3498db; width:100%; padding:14px; border:none; border-radius:8px; color:white; font-size:1.1em; font-weight:bold; margin-top:5px;" onclick="generateGoalRoute()">🔍 ルート検索開始</button>
-                        <div class="fs-btn-row"><button style="background:#2980b9;" onclick="centerMap()">📍現在地</button><button style="background:#27ae60;" onclick="enableWaypointMode()">🟢中継</button><button style="background:#e74c3c;" onclick="clearMap()">✖消去</button><button style="background:#7f8c8d;" onclick="closeMapMode()">❌閉じる</button></div>
-                    </div>
+                    <button class="action-btn" style="background:#3498db;" onclick="generateGoalRoute()">🔍 ルート検索開始</button>
                 </div>
             </div>
         </div>
@@ -104,14 +74,14 @@
         <div id="tab-meal" class="main-tab-content">
             <div class="card">
                 <h2 style="margin-top:0;">⚖️ 体調と食事</h2>
-                <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; margin-bottom: 15px; border: 1px solid #eee;">
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; margin-bottom: 15px;">
                     <div style="display: flex; gap: 10px; margin-bottom: 10px;">
                         <div style="flex:1;"><label style="font-size:0.85em; font-weight:bold;">🎯 目標:</label><select id="goal-mode" onchange="calcAll()"><option value="diet">📉 ダイエット</option><option value="keep" selected>⚖️ 健康維持</option><option value="muscle">💪 筋力アップ</option></select></div>
                         <div style="flex:1;"><label style="font-size:0.85em; font-weight:bold;">⚖️ 体重(kg):</label><input type="number" id="weight-input" value="65" oninput="calcAll()"></div>
                     </div>
                     <details>
-                        <summary style="font-size:0.85em; color:#777;">⚙️ 詳細設定 (身長・生年月日・APIキー等)</summary>
-                        <div class="profile-row"><span>地図APIキー:</span><input type="password" id="map-api-key" onchange="saveMapKey()"></div>
+                        <summary style="font-size:0.85em; color:#777;">⚙️ 詳細設定 (AIキー・Firebase・身長等)</summary>
+                        <div class="profile-row"><span>Gemini API Key:</span><input type="password" id="gemini-api-key" placeholder="AIアドバイス用"></div>
                         <div class="profile-row"><span>性別:</span><select id="gender-input" onchange="calcAll()"><option value="male">男性</option><option value="female">女性</option></select></div>
                         <div class="profile-row"><span>生年月日:</span><input type="date" id="dob-input" value="1990-01-01" onchange="calcAll()"></div>
                         <div class="profile-row"><span>身長(cm):</span><input type="number" id="height-input" value="170" oninput="calcAll()"></div>
@@ -119,13 +89,13 @@
                     </details>
                 </div>
 
-                <div class="balance-box">🔥 <strong>カロリーバランス</strong><br><small>摂取 <span id="bal-in">0</span> - 消費 <span id="bal-out">0</span></small><div id="balance-result-text" style="font-size:1.3em; font-weight:bold;">---</div></div>
+                <button class="action-btn" style="background:#6c5ce7; margin-bottom:15px;" onclick="getAIAdvice()">🤖 AIアドバイスをもらう</button>
+                <div id="ai-advice-box"><div class="ai-chat-bubble" id="ai-response">分析中...</div></div>
 
-                <div style="background:#f0f4f8; padding:10px; border-radius:10px; margin-top:15px; margin-bottom:10px;">
+                <div style="background:#f0f4f8; padding:10px; border-radius:10px; margin-bottom:10px;">
                     <input type="text" id="manual-name" placeholder="食品名" style="margin-bottom:5px;">
-                    <div class="meal-grid"><div>Kcal</div><div>P(g)</div><div>F(g)</div><div>C(g)</div><div>塩(g)</div>
-                    <input type="number" id="manual-cal" placeholder="0"><input type="number" id="manual-p" placeholder="0"><input type="number" id="manual-f" placeholder="0"><input type="number" id="manual-c" placeholder="0"><input type="number" id="manual-s" placeholder="0"></div>
-                    <select id="manual-meal-type" style="margin-top:5px; margin-bottom:5px;"><option value="bf">朝食に追加</option><option value="lu">昼食に追加</option><option value="dn">夕食に追加</option><option value="sn">間食に追加</option></select>
+                    <div class="meal-grid"><div>Kcal</div><div>P(g)</div><div>F(g)</div><div>C(g)</div><div>塩(g)</div><input type="number" id="manual-cal" placeholder="0"><input type="number" id="manual-p" placeholder="0"><input type="number" id="manual-f" placeholder="0"><input type="number" id="manual-c" placeholder="0"><input type="number" id="manual-s" placeholder="0"></div>
+                    <select id="manual-meal-type" style="margin:5px 0;"><option value="bf">朝食に追加</option><option value="lu">昼食に追加</option><option value="dn">夕食に追加</option><option value="sn">間食に追加</option></select>
                     <button class="action-btn" style="background:#27ae60; margin:0;" onclick="addManualFood()">食事を追加</button>
                 </div>
 
@@ -142,236 +112,139 @@
                     <div id="s-text" style="font-size:0.8em;">塩分 0 / 7.0g</div><div class="pfc-bar-bg"><div id="s-bar" class="pfc-bar-fg" style="background:#95a5a6;"></div></div>
                 </div>
                 
-                <button class="action-btn" style="background:#27ae60; margin-top:20px; padding:15px; font-size:1.1em;" onclick="saveCurrentData()">💾 クラウドへ保存</button>
+                <button class="action-btn" style="background:#e74c3c; margin-top:20px; padding:15px;" onclick="saveCurrentData()">💾 クラウドへ同期保存</button>
             </div>
         </div>
 
         <div id="tab-history" class="main-tab-content">
             <div class="card">
                 <h2 style="margin-top:0;">📊 カラダの変化グラフ</h2>
-                <div class="graph-toggle-area">
-                    <button id="toggle-weight" class="toggle-btn active" onclick="setGraphType('weight')">体重</button>
-                    <button id="toggle-steps" class="toggle-btn" onclick="setGraphType('steps')">歩数</button>
+                <div class="graph-toggle-area" style="display:flex; gap:5px; margin-bottom:10px;">
+                    <button id="toggle-weight" class="action-btn" style="background:#3498db; margin:0; flex:1;" onclick="setGraphType('weight')">体重</button>
+                    <button id="toggle-steps" class="action-btn" style="background:#95a5a6; margin:0; flex:1;" onclick="setGraphType('steps')">歩数</button>
                 </div>
-                <div style="background: white; border: 1px solid #ddd; border-radius: 10px; padding: 5px;">
-                    <canvas id="healthChart"></canvas>
-                </div>
+                <canvas id="healthChart"></canvas>
             </div>
-            <div class="card">
-                <h2 style="margin-top:0;">🗓️ 過去の履歴</h2>
-                <div id="history-list"></div>
-            </div>
+            <div class="card"><h2>🗓️ 過去の履歴</h2><div id="history-list"></div></div>
         </div>
     </div>
 
     <nav class="bottom-nav">
-        <button class="nav-btn active" id="btn-walk" onclick="switchMainTab('walk')">🚶‍♂️歩行・地図</button>
-        <button class="nav-btn" id="btn-meal" onclick="switchMainTab('meal')">⚖️体調・食事</button>
-        <button class="nav-btn" id="btn-history" onclick="switchMainTab('history')">📊履歴・グラフ</button>
+        <button class="nav-btn active" onclick="switchMainTab('walk')">🚶‍♂️歩行・地図</button>
+        <button class="nav-btn" onclick="switchMainTab('meal')">⚖️体調・食事</button>
+        <button class="nav-btn" onclick="switchMainTab('history')">📊履歴・グラフ</button>
     </nav>
 
     <script>
-        // --- Firebase 設定 ---
-        const firebaseConfig = { /* 指揮官の設定をここに維持 */ };
-        if (firebaseConfig.projectId) {
-            firebase.initializeApp(firebaseConfig);
-            var db = firebase.database();
-        }
+        // Firebase 設定
+        const firebaseConfig = { /* 指揮官の設定を維持 */ };
+        if (firebaseConfig.projectId) { firebase.initializeApp(firebaseConfig); var db = firebase.database(); }
 
-        let steps = 0; let todayFoodLogs = { bf: [], lu: [], dn: [], sn: [] };
-        let map, marker, goalPath, destMarker, waypointMarker, wakeLockSentinel = null, isTrackingMode = true, isFullscreen = false, isWaypointMode = false;
+        let steps = 0, todayFoodLogs = { bf: [], lu: [], dn: [], sn: [] }, map, currentGraphType = 'weight';
         let currentLat = 35.6812, currentLng = 139.7671;
-        let currentGraphType = 'weight';
 
         function switchMainTab(t) {
             document.querySelectorAll('.main-tab-content').forEach(e => e.classList.remove('active'));
-            document.querySelectorAll('.nav-btn').forEach(e => e.classList.remove('active'));
-            document.getElementById('tab-'+t).classList.add('active'); document.getElementById('btn-'+t).classList.add('active');
+            document.getElementById('tab-'+t).classList.add('active');
             if(t==='history') { renderGraph(); displayHistory(); }
-            if(t==='walk'&&map) setTimeout(()=>map.invalidateSize(), 300);
+        }
+
+        // --- AI機能 (PRO専用：復活) ---
+        async function getAIAdvice() {
+            const key = document.getElementById('gemini-api-key').value;
+            if (!key) return alert("詳細設定からGemini APIキーを入力してください。");
+            document.getElementById('ai-advice-box').style.display = 'block';
+            document.getElementById('ai-response').innerText = "AIが本日のデータを分析中...";
+
+            const pfcData = `摂取:${document.getElementById('bal-in').innerText}kcal, P:${document.getElementById('p-text').innerText}, F:${document.getElementById('f-text').innerText}, C:${document.getElementById('c-text').innerText}`;
+            const prompt = `歩数:${steps}歩、食事:${pfcData}。このデータに基づき、健康維持と目標モードに応じた短いアドバイスをください。`;
+
+            try {
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`, {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                });
+                const data = await res.json();
+                document.getElementById('ai-response').innerText = data.candidates[0].content.parts[0].text;
+            } catch (e) { document.getElementById('ai-response').innerText = "エラー：AIに接続できませんでした。"; }
         }
 
         function addManualFood() {
             const type = document.getElementById('manual-meal-type').value;
-            const item = {
-                id: Date.now(),
-                name: document.getElementById('manual-name').value || "食品",
-                kcal: parseFloat(document.getElementById('manual-cal').value) || 0,
-                p: parseFloat(document.getElementById('manual-p').value) || 0,
-                f: parseFloat(document.getElementById('manual-f').value) || 0,
-                c: parseFloat(document.getElementById('manual-c').value) || 0,
-                s: parseFloat(document.getElementById('manual-s').value) || 0
-            };
+            const item = { id: Date.now(), name: document.getElementById('manual-name').value || "食品", kcal: parseFloat(document.getElementById('manual-cal').value) || 0, p: parseFloat(document.getElementById('manual-p').value) || 0, f: parseFloat(document.getElementById('manual-f').value) || 0, c: parseFloat(document.getElementById('manual-c').value) || 0, s: parseFloat(document.getElementById('manual-s').value) || 0 };
             todayFoodLogs[type].push(item); renderLogs(); calcAll();
             ['manual-name','manual-cal','manual-p','manual-f','manual-c','manual-s'].forEach(id => document.getElementById(id).value = "");
         }
 
-        function removeFood(t, id) { todayFoodLogs[t] = todayFoodLogs[t].filter(i => i.id !== id); renderLogs(); calcAll(); }
-
         function renderLogs() {
             ['bf','lu','dn','sn'].forEach(t => {
-                document.getElementById(t+'-log').innerHTML = todayFoodLogs[t].map(i => `
-                    <div class="food-log-item"><span>${i.name} (${i.kcal}k)</span><button onclick="removeFood('${t}', ${i.id})">✖</button></div>
-                `).join('');
+                document.getElementById(t+'-log').innerHTML = todayFoodLogs[t].map(i => `<div class="food-log-item"><span>${i.name} (${i.kcal}k)</span><button style="background:#e74c3c;color:white;border:none;border-radius:4px;" onclick="removeFood('${t}', ${i.id})">✖</button></div>`).join('');
             });
         }
+        function removeFood(t, id) { todayFoodLogs[t] = todayFoodLogs[t].filter(i => i.id !== id); renderLogs(); calcAll(); }
 
         function calcAll() {
-            const weight = parseFloat(document.getElementById('weight-input').value) || 65;
-            const height = parseFloat(document.getElementById('height-input').value) || 170;
-            const gender = document.getElementById('gender-input').value;
-            const dob = new Date(document.getElementById('dob-input').value || "1990-01-01");
-            const age = new Date().getFullYear() - dob.getFullYear();
-            const goalMode = document.getElementById('goal-mode').value;
-            const displayItem = document.getElementById('header-display-item').value;
+            const weight = parseFloat(document.getElementById('weight-input').value) || 65, height = parseFloat(document.getElementById('height-input').value) || 170;
+            const gender = document.getElementById('gender-input').value, dob = new Date(document.getElementById('dob-input').value || "1990-01-01");
+            const age = new Date().getFullYear() - dob.getFullYear(), goalMode = document.getElementById('goal-mode').value, displayItem = document.getElementById('header-display-item').value;
 
             const activeCal = Math.round(steps * weight * 0.0005);
             document.getElementById('calories-display').innerText = activeCal;
 
-            let tKcal=0, tP=0, tF=0, tC=0, tS=0;
+            let tK=0, tP=0, tF=0, tC=0, tS=0;
             const propMap = { kcal: 'kcal', p: 'p', f: 'f', c: 'c', s: 's' };
-            const unitMap = { kcal: 'kcal', p: 'g', f: 'g', c: 'g', s: 'g' };
 
             ['bf','lu','dn','sn'].forEach(t => {
-                let subtotal = 0;
-                todayFoodLogs[t].forEach(i => {
-                    tKcal += i.kcal; tP += i.p; tF += i.f; tC += i.c; tS += i.s;
-                    subtotal += (i[propMap[displayItem]] || 0);
-                });
-                const label = (displayItem === 'kcal') ? Math.round(subtotal) : subtotal.toFixed(1);
-                document.getElementById(t + '-header-sum').innerText = `(${label} ${unitMap[displayItem]})`;
+                let sub = 0;
+                todayFoodLogs[t].forEach(i => { tK+=i.kcal; tP+=i.p; tF+=i.f; tC+=i.c; tS+=i.s; sub += i[propMap[displayItem]]; });
+                document.getElementById(t + '-header-sum').innerText = `(${displayItem==='kcal'?Math.round(sub):sub.toFixed(1)})`;
             });
 
-            document.getElementById('bal-in').innerText = Math.round(tKcal);
+            document.getElementById('bal-in').innerText = Math.round(tK);
             let bmr = (10 * weight) + (6.25 * height) - (5 * age) + (gender === 'male' ? 5 : -161);
             document.getElementById('bal-out').innerText = Math.round(bmr + activeCal);
-            document.getElementById('balance-result-text').innerText = Math.round(tKcal - (bmr + activeCal)) + " kcal";
+            document.getElementById('balance-result-text').innerText = Math.round(tK - (bmr + activeCal)) + " kcal";
 
-            const updateBar = (id, cur, tar, unit) => {
-                document.getElementById(id + '-text').innerText = `${id === 's' ? '塩分' : id.toUpperCase()} ${cur.toFixed(1)} / ${tar.toFixed(1)}${unit}`;
-                document.getElementById(id + '-bar').style.width = tar > 0 ? Math.min(100, (cur/tar)*100) + '%' : '0%';
+            const updateBar = (id, cur, tar) => {
+                document.getElementById(id+'-text').innerText = `${id==='s'?'塩分':id.toUpperCase()} ${cur.toFixed(1)} / ${tar.toFixed(1)}g`;
+                document.getElementById(id+'-bar').style.width = Math.min(100, (cur/tar)*100) + '%';
             };
-            
-            let targetP = weight * (goalMode === 'muscle' ? 2 : 1.5);
-            let targetF = weight * 0.8;
-            let targetC = weight * (goalMode === 'diet' ? 2 : 4);
-            updateBar('p', tP, targetP, 'g'); updateBar('f', tF, targetF, 'g'); updateBar('c', tC, targetC, 'g');
-            updateBar('s', tS, 7.0, 'g');
+            updateBar('p', tP, weight * (goalMode==='muscle'?2:1.5)); updateBar('f', tF, weight * 0.8); updateBar('c', tC, weight * (goalMode==='diet'?2:4)); updateBar('s', tS, 7.0);
 
             localStorage.setItem('user_lite_profile', JSON.stringify({ weight, height, gender, dob: document.getElementById('dob-input').value, logs: todayFoodLogs, displayItem, goalMode }));
         }
 
         function saveCurrentData() {
+            const data = { date: new Date().toLocaleDateString(), steps, weight: document.getElementById('weight-input').value, inCal: parseInt(document.getElementById('bal-in').innerText), outCal: parseInt(document.getElementById('bal-out').innerText) };
             let history = JSON.parse(localStorage.getItem('walkingHistory')) || [];
-            const data = { 
-                date: new Date().toLocaleDateString(), 
-                steps, 
-                weight: document.getElementById('weight-input').value, 
-                inCal: parseInt(document.getElementById('bal-in').innerText),
-                outCal: parseInt(document.getElementById('bal-out').innerText)
-            };
             history = [data, ...history.filter(h => h.date !== data.date)];
             localStorage.setItem('walkingHistory', JSON.stringify(history));
             if (db) { db.ref('users/iizuka/history/' + Date.now()).set(data); }
-            alert("本日の記録をクラウドと端末に保存しました！");
-            displayHistory();
+            alert("保存しました"); displayHistory();
         }
 
         function displayHistory() {
             const history = JSON.parse(localStorage.getItem('walkingHistory')) || [];
             document.getElementById('history-list').innerHTML = history.slice(0, 15).map(h => {
                 const bal = (h.inCal || 0) - (h.outCal || 0);
-                return `
-                <div class="history-card">
-                    <div class="history-date">${h.date}</div>
-                    <div class="history-row">🚶 ${parseInt(h.steps).toLocaleString()}歩 / 🍽️ 摂取: ${h.inCal}kcal</div>
-                    <div class="history-row">⚖️ バランス: <span style="color:${bal>0?'#e67e22':'#27ae60'}; font-weight:bold;">${bal>0?'⚠️+':'✨'}${bal}k</span> / 👤 体重: ${h.weight}kg</div>
-                </div>`;
+                return `<div class="history-card"><div class="history-date">${h.date}</div><div class="history-row">🚶 ${parseInt(h.steps).toLocaleString()}歩 / 🍽️ 摂取: ${h.inCal}kcal</div><div class="history-row">⚖️ バランス: <span style="color:${bal>0?'#e67e22':'#27ae60'}; font-weight:bold;">${bal>0?'⚠️+':'✨'}${bal}k</span> / 👤 体重: ${h.weight}kg</div></div>`;
             }).join('');
         }
 
-        function setGraphType(type) {
-            currentGraphType = type;
-            document.getElementById('toggle-weight').classList.toggle('active', type === 'weight');
-            document.getElementById('toggle-steps').classList.toggle('active', type === 'steps');
-            renderGraph();
-        }
-
+        function setGraphType(type) { currentGraphType = type; renderGraph(); }
         function renderGraph() {
             const history = JSON.parse(localStorage.getItem('walkingHistory')) || [];
             const ctx = document.getElementById('healthChart').getContext('2d');
             if (window.myChart) window.myChart.destroy();
-            const labels = history.map(h => h.date).reverse();
-            const dataPoints = history.map(h => currentGraphType === 'weight' ? h.weight : h.steps).reverse();
-            window.myChart = new Chart(ctx, { 
-                type: 'line', 
-                data: { labels: labels, datasets: [{ 
-                    label: currentGraphType === 'weight' ? '体重 (kg)' : '歩数 (歩)', 
-                    data: dataPoints, borderColor: currentGraphType==='weight'?'#3498db':'#27ae60', fill:true, tension:0.3 
-                }] },
-                options: { scales: { y: { beginAtZero: false } } }
-            });
+            window.myChart = new Chart(ctx, { type: 'line', data: { labels: history.map(h => h.date).reverse(), datasets: [{ label: currentGraphType==='weight'?'体重':'歩数', data: history.map(h => currentGraphType==='weight'?h.weight:h.steps).reverse(), borderColor: '#3498db', fill:true, tension:0.3 }] } });
         }
 
         function initMap() {
             map = L.map('map', {zoomControl: false}).setView([currentLat, currentLng], 15);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-            marker = L.marker([currentLat, currentLng]).addTo(map);
-            goalPath = L.polyline([], {color: '#2980b9', weight: 6}).addTo(map);
-            if (navigator.geolocation) {
-                navigator.geolocation.watchPosition(p => {
-                    currentLat = p.coords.latitude; currentLng = p.coords.longitude;
-                    marker.setLatLng([currentLat, currentLng]);
-                    if (isTrackingMode) map.setView([currentLat, currentLng], map.getZoom());
-                });
-            }
+            L.marker([currentLat, currentLng]).addTo(map);
+            if (navigator.geolocation) { navigator.geolocation.watchPosition(p => { currentLat = p.coords.latitude; currentLng = p.coords.longitude; }); }
         }
-
-        async function openMapMode(m) {
-            document.querySelector(`input[name="fs-route-mode"][value="${m}"]`).checked = true; updateFsUI();
-            isFullscreen = true; document.getElementById('map-container').classList.add('is-fullscreen');
-            if ('wakeLock' in navigator) wakeLockSentinel = await navigator.wakeLock.request('screen');
-            setTimeout(()=>map.invalidateSize(), 300);
-        }
-
-        async function closeMapMode() {
-            isFullscreen = false; document.getElementById('map-container').classList.remove('is-fullscreen');
-            if (wakeLockSentinel) { await wakeLockSentinel.release(); wakeLockSentinel = null; }
-            setTimeout(()=>map.invalidateSize(), 300);
-        }
-
-        function updateFsUI() {
-            const m = document.querySelector('input[name="fs-route-mode"]:checked').value;
-            document.getElementById('fs-distance-input-area').style.display = (m === 'loop' ? 'flex' : 'none');
-            document.getElementById('fs-dest-hint').style.display = (m === 'dest' ? 'block' : 'none');
-        }
-
-        function centerMap() { isTrackingMode = true; map.setView([currentLat, currentLng], 17); }
-        function clearMap() { if(destMarker) map.removeLayer(destMarker); if(waypointMarker) map.removeLayer(waypointMarker); goalPath.setLatLngs([]); }
-        function enableWaypointMode() { isWaypointMode = true; alert("中継地を選択してください"); }
-
-        async function generateGoalRoute() {
-            const key = localStorage.getItem('map_api_key'); if(!key) return alert("APIキーを設定");
-            const mode = document.querySelector('input[name="fs-route-mode"]:checked').value;
-            const body = { coordinates: [[currentLng, currentLat]], units: "m" };
-            if (mode === 'loop') {
-                const dist = parseFloat(document.getElementById('goal-value').value) * 1000;
-                body.options = { round_trip: { length: Math.round(dist), points: 3 } };
-            } else {
-                if(!destMarker) return alert("目的地を指定");
-                if(waypointMarker) body.coordinates.push([waypointMarker.getLatLng().lng, waypointMarker.getLatLng().lat]);
-                body.coordinates.push([destMarker.getLatLng().lng, destMarker.getLatLng().lat]);
-            }
-            const res = await fetch('https://api.openrouteservice.org/v2/directions/foot-hiking/geojson', {
-                method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': key },
-                body: JSON.stringify(body)
-            });
-            const data = await res.json();
-            const route = data.features[0].geometry.coordinates.map(c => [c[1], c[0]]);
-            goalPath.setLatLngs(route); map.fitBounds(goalPath.getBounds());
-        }
-
-        function saveMapKey() { localStorage.setItem('map_api_key', document.getElementById('map-api-key').value); }
 
         window.onload = function() {
             const params = new URLSearchParams(window.location.search);
@@ -381,14 +254,10 @@
             if(saved) {
                 todayFoodLogs = saved.logs || todayFoodLogs;
                 document.getElementById('weight-input').value = saved.weight || 65;
-                document.getElementById('height-input').value = saved.height || 170;
-                document.getElementById('gender-input').value = saved.gender || 'male';
                 document.getElementById('dob-input').value = saved.dob || '1990-01-01';
                 document.getElementById('header-display-item').value = saved.displayItem || 'kcal';
-                document.getElementById('goal-mode').value = saved.goalMode || 'keep';
             }
-            document.getElementById('map-api-key').value = localStorage.getItem('map_api_key') || "";
-            renderLogs(); calcAll(); initMap(); displayHistory();
+            initMap(); renderLogs(); calcAll(); displayHistory();
         };
     </script>
 </body>
