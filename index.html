@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>マイウォーキングアプリ v14.12 PRO</title>
+    <title>マイウォーキングアプリ v14.13 PRO</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -49,7 +49,6 @@
         summary { font-weight: bold; cursor: pointer; padding: 5px 0; display: flex; justify-content: space-between; align-items: center; }
         .profile-row { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; gap: 10px; font-size: 0.9em; }
         
-        /* 💡 食事入力グリッド（塩分を追加） */
         .meal-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin-top: 10px; text-align: center; font-size: 0.6em; }
         .meal-grid input { padding: 5px; font-size: 1em; text-align: center; }
         
@@ -62,32 +61,20 @@
         
         .summary-val { font-size: 0.9em; color: #27ae60; font-weight: bold; margin-left: auto; margin-right: 10px; }
 
-        /* ✨ 履歴タブ用スタイル（一行表示対応） */
         .history-card { border-left: 5px solid #27ae60; background: #fff; border-radius: 8px; padding: 12px; margin-bottom: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border: 1px solid #eee; }
         .history-date { font-weight: bold; color: #2c3e50; font-size: 1.1em; margin-bottom: 6px; }
         .history-row { display: flex; align-items: center; gap: 4px; font-size: 0.82em; color: #555; margin-bottom: 4px; white-space: nowrap; overflow: hidden; }
         .graph-toggle-area { display: flex; gap: 5px; margin-bottom: 10px; }
         .toggle-btn { flex: 1; padding: 10px 0; border: 1px solid #ddd; background: #ecf0f1; color: #7f8c8d; font-weight: bold; border-radius: 6px; cursor: pointer; }
         .toggle-btn.active { background: #3498db; color: white; border-color: #3498db; }
-
-        #password-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #f0f4f8; z-index: 9999999; display: flex; flex-direction: column; justify-content: center; align-items: center; }
     </style>
 </head>
 <body>
 
-    <div id="password-overlay">
-        <div class="password-box" style="background:white; padding:30px; border-radius:15px; box-shadow:0 10px 25px rgba(0,0,0,0.1); text-align:center; width:85%; max-width:320px;">
-            <h2>🔒 PRO版 認証</h2>
-            <input type="password" id="app-password-input" placeholder="合言葉を入力" style="text-align:center; margin-bottom:15px; width:100%; padding:10px;">
-            <button onclick="checkAppPassword()" style="width:100%; padding:12px; background:#e74c3c; color:white; border:none; border-radius:8px; font-weight:bold;">認証する</button>
-            <p id="password-error" style="color:#e74c3c; display:none; font-size:0.8em; margin-top:10px;">合言葉が違います</p>
-        </div>
-    </div>
-
     <div class="container">
         <div id="tab-walk" class="main-tab-content active">
             <div class="card">
-                <h1>健康ログ <span class="version-badge">v14.12 PRO</span></h1>
+                <h1>健康ログ <span class="version-badge">v14.13 PRO</span></h1>
                 <div style="display: flex; gap: 10px; margin-top: 15px; margin-bottom: 15px;">
                     <button class="action-btn" style="background:#8e44ad; margin:0; flex:1;" onclick="openMapMode('loop')">🔄 周回ルート</button>
                     <button class="action-btn" style="background:#e67e22; margin:0; flex:1;" onclick="openMapMode('dest')">📍 目的地へ</button>
@@ -184,8 +171,8 @@
     </nav>
 
     <script>
-        // --- Firebase 設定 (v14.11から継続) ---
-        const firebaseConfig = { /* ここにFirebaseの設定を貼る */ };
+        // --- Firebase 設定 ---
+        const firebaseConfig = { /* 指揮官の設定をここに維持 */ };
         if (firebaseConfig.projectId) {
             firebase.initializeApp(firebaseConfig);
             var db = firebase.database();
@@ -204,7 +191,6 @@
             if(t==='walk'&&map) setTimeout(()=>map.invalidateSize(), 300);
         }
 
-        // 💡 塩分(s)の入力を追加
         function addManualFood() {
             const type = document.getElementById('manual-meal-type').value;
             const item = {
@@ -230,7 +216,6 @@
             });
         }
 
-        // ✨ 合計計算と塩分グラフの更新
         function calcAll() {
             const weight = parseFloat(document.getElementById('weight-input').value) || 65;
             const height = parseFloat(document.getElementById('height-input').value) || 170;
@@ -271,12 +256,11 @@
             let targetF = weight * 0.8;
             let targetC = weight * (goalMode === 'diet' ? 2 : 4);
             updateBar('p', tP, targetP, 'g'); updateBar('f', tF, targetF, 'g'); updateBar('c', tC, targetC, 'g');
-            updateBar('s', tS, 7.0, 'g'); // 塩分
+            updateBar('s', tS, 7.0, 'g');
 
             localStorage.setItem('user_lite_profile', JSON.stringify({ weight, height, gender, dob: document.getElementById('dob-input').value, logs: todayFoodLogs, displayItem, goalMode }));
         }
 
-        // 💾 クラウド保存 (v14.11から継続)
         function saveCurrentData() {
             let history = JSON.parse(localStorage.getItem('walkingHistory')) || [];
             const data = { 
@@ -288,10 +272,7 @@
             };
             history = [data, ...history.filter(h => h.date !== data.date)];
             localStorage.setItem('walkingHistory', JSON.stringify(history));
-            
-            if (db) {
-                db.ref('users/iizuka/history/' + Date.now()).set(data);
-            }
+            if (db) { db.ref('users/iizuka/history/' + Date.now()).set(data); }
             alert("本日の記録をクラウドと端末に保存しました！");
             displayHistory();
         }
@@ -327,11 +308,11 @@
                 data: { labels: labels, datasets: [{ 
                     label: currentGraphType === 'weight' ? '体重 (kg)' : '歩数 (歩)', 
                     data: dataPoints, borderColor: currentGraphType==='weight'?'#3498db':'#27ae60', fill:true, tension:0.3 
-                }] }
+                }] },
+                options: { scales: { y: { beginAtZero: false } } }
             });
         }
 
-        // --- 地図制御 (v14.11継続) ---
         function initMap() {
             map = L.map('map', {zoomControl: false}).setView([currentLat, currentLng], 15);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
@@ -390,18 +371,9 @@
             goalPath.setLatLngs(route); map.fitBounds(goalPath.getBounds());
         }
 
-        const APP_SECRET_PASSWORD = "walking-app-pro"; 
-        function checkAppPassword() {
-            if (document.getElementById('app-password-input').value === APP_SECRET_PASSWORD) {
-                localStorage.setItem('iizuka_pro_unlocked', 'true');
-                document.getElementById('password-overlay').style.display = 'none';
-            } else { document.getElementById('password-error').style.display = 'block'; }
-        }
-
         function saveMapKey() { localStorage.setItem('map_api_key', document.getElementById('map-api-key').value); }
 
         window.onload = function() {
-            if (localStorage.getItem('iizuka_pro_unlocked') === 'true') { document.getElementById('password-overlay').style.display = 'none'; }
             const params = new URLSearchParams(window.location.search);
             steps = parseInt(params.get('steps')) || 0;
             document.getElementById('steps-display').innerText = steps.toLocaleString();
