@@ -116,6 +116,9 @@
         .modal-grid label { font-size: 0.85em; font-weight: bold; color: #555; display: flex; flex-direction: column; }
         .modal-grid input { padding: 8px; border: 1px solid #ccc; border-radius: 5px; font-size: 1em; margin-top: 3px; }
         .modal-btn-row { display: flex; gap: 10px; }
+        
+        /* 今回追加したCSS */
+        .summary-val { font-size: 0.9em; color: #27ae60; font-weight: bold; margin-left: auto; margin-right: 10px; }
     </style>
 </head>
 <body>
@@ -243,6 +246,8 @@
                         <div class="profile-row"><span>身長(cm):</span> <input type="number" id="height-input" class="inline-input" value="170" oninput="calcAll()"></div>
                         <div class="profile-row"><span>目標歩数:</span> <input type="number" id="target-steps-input" class="inline-input" value="8000" oninput="calcAll()"></div>
                         
+                        <div class="profile-row"><span>表示項目:</span> <select id="header-display-item" class="inline-input" onchange="calcAll()"><option value="kcal" selected>カロリー</option><option value="p">たんぱく質</option><option value="f">脂質</option><option value="c">炭水化物</option><option value="s">塩分</option></select></div>
+                        
                         <div style="margin-top:10px; padding-top:10px; border-top:1px dashed #ccc; font-size: 0.8em; color: #555;">
                             Gemini APIキー:
                             <div style="display: flex; gap: 5px; margin-top:5px;">
@@ -256,7 +261,7 @@
                 <h3 style="font-size: 1em; margin-bottom: 5px; border-bottom: 1px solid #ccc;">🍽️ 食事記録 (AI手入力 / 写真追加)</h3>
                 
                 <details>
-                    <summary>🌅 朝食</summary>
+                    <summary>🌅 朝食 <span id="bf-header-sum" class="summary-val"></span></summary>
                     <div class="food-input-row">
                         <input type="text" id="bf-food-text" list="food-history-list" placeholder="例: ごはん0.5合、納豆">
                         <button class="action-btn" id="bf-text-btn" onclick="handleTextFood('bf')">🔍 追加</button>
@@ -274,7 +279,7 @@
                 </details>
 
                 <details>
-                    <summary>☀️ 昼食</summary>
+                    <summary>☀️ 昼食 <span id="lu-header-sum" class="summary-val"></span></summary>
                     <div class="food-input-row">
                         <input type="text" id="lu-food-text" list="food-history-list" placeholder="例: カレーライス">
                         <button class="action-btn" id="lu-text-btn" onclick="handleTextFood('lu')">🔍 追加</button>
@@ -292,7 +297,7 @@
                 </details>
 
                 <details>
-                    <summary>🌙 夕食</summary>
+                    <summary>🌙 夕食 <span id="dn-header-sum" class="summary-val"></span></summary>
                     <div class="food-input-row">
                         <input type="text" id="dn-food-text" list="food-history-list" placeholder="例: ハンバーグ、サラダ">
                         <button class="action-btn" id="dn-text-btn" onclick="handleTextFood('dn')">🔍 追加</button>
@@ -310,7 +315,7 @@
                 </details>
 
                 <details>
-                    <summary>☕️ 間食</summary>
+                    <summary>☕️ 間食 <span id="sn-header-sum" class="summary-val"></span></summary>
                     <div class="food-input-row">
                         <input type="text" id="sn-food-text" list="food-history-list" placeholder="例: ファミチキ、バナナ">
                         <button class="action-btn" id="sn-text-btn" onclick="handleTextFood('sn')">🔍 追加</button>
@@ -326,7 +331,6 @@
                     <div id="sn-log" class="food-log-container"></div>
                     <div class="meal-grid"><div>Kcal</div><div>P(g)</div><div>F(g)</div><div>C(g)</div><div>塩(g)</div><input type="number" id="sn-cal" oninput="calcAll()"><input type="number" id="sn-p" oninput="calcAll()"><input type="number" id="sn-f" oninput="calcAll()"><input type="number" id="sn-c" oninput="calcAll()"><input type="number" id="sn-s" oninput="calcAll()"></div>
                 </details>
-
                 <div style="background: #fdfefe; padding: 10px; border: 1px solid #bdc3c7; border-radius: 8px; margin-top: 10px; font-size: 0.9em;">
                     <strong>📋 本日の摂取合計</strong><br>
                     <span id="total-kcal" style="font-size:1.2em; font-weight:bold; color:#d35400;">0</span> kcal<br>
@@ -1002,8 +1006,21 @@ ${getPersonaPrompt()}
                 document.getElementById('f-text').innerText = `${tF.toFixed(1)} / ${Math.round(targetF)} g`; document.getElementById('f-bar').style.width = targetF > 0 ? Math.min(100, (tF / targetF) * 100) + '%' : '0%';
                 document.getElementById('c-text').innerText = `${tC.toFixed(1)} / ${Math.round(targetC)} g`; document.getElementById('c-bar').style.width = targetC > 0 ? Math.min(100, (tC / targetC) * 100) + '%' : '0%';
 
+                // ★追加箇所：ヘッダー合計の計算と反映
+                const displayItem = document.getElementById('header-display-item') ? document.getElementById('header-display-item').value : 'kcal';
+                const propMap = { kcal: 'kcal', p: 'p', f: 'f', c: 'c', s: 's' };
+                const unitMap = { kcal: 'kcal', p: 'g', f: 'g', c: 'g', s: 'g' };
+                ['bf','lu','dn','sn'].forEach(t => {
+                    let sub = 0;
+                    if(todayFoodLogs[t]) todayFoodLogs[t].forEach(i => { sub += (parseFloat(i[propMap[displayItem]]) || 0); });
+                    const label = displayItem === 'kcal' ? Math.round(sub) : sub.toFixed(1);
+                    const hdr = document.getElementById(t + '-header-sum');
+                    if(hdr) hdr.innerText = `(${label} ${unitMap[displayItem]})`;
+                });
+
                 const cm = { bf: [getVal('bf-cal'), getVal('bf-p'), getVal('bf-f'), getVal('bf-c'), getVal('bf-s')], lu: [getVal('lu-cal'), getVal('lu-p'), getVal('lu-f'), getVal('lu-c'), getVal('lu-s')], dn: [getVal('dn-cal'), getVal('dn-p'), getVal('dn-f'), getVal('dn-c'), getVal('dn-s')], sn: [getVal('sn-cal'), getVal('sn-p'), getVal('sn-f'), getVal('sn-c'), getVal('sn-s')] };
-                localStorage.setItem('userProfileV7', JSON.stringify({realname: real, nickname: nick, weight: w, height: h, dob: dobStr, gender: g, targetSteps: targetSteps, goalMode: goalMode, meals: cm, todayLogs: todayFoodLogs, steps: steps, lastDate: new Date().toLocaleDateString(), bmr: bmr}));
+                // ★追加箇所：displayItem を保存内容に追加
+                localStorage.setItem('userProfileV7', JSON.stringify({realname: real, nickname: nick, weight: w, height: h, dob: dobStr, gender: g, targetSteps: targetSteps, goalMode: goalMode, meals: cm, todayLogs: todayFoodLogs, steps: steps, lastDate: new Date().toLocaleDateString(), bmr: bmr, displayItem: displayItem}));
             } catch(e) { console.error(e); }
         };
 
@@ -1081,6 +1098,8 @@ ${getPersonaPrompt()}
                     if (sp.dob) document.getElementById('dob-input').value = sp.dob;
                     if (sp.targetSteps) document.getElementById('target-steps-input').value = sp.targetSteps;
                     if (sp.goalMode) document.getElementById('goal-mode').value = sp.goalMode;
+                    // ★追加箇所：表示項目の復元
+                    if (sp.displayItem && document.getElementById('header-display-item')) document.getElementById('header-display-item').value = sp.displayItem;
 
                     if (sp.meals) { const sv = (p, a) => { document.getElementById(p+'-cal').value = a[0]||''; document.getElementById(p+'-p').value = a[1]||''; document.getElementById(p+'-f').value = a[2]||''; document.getElementById(p+'-c').value = a[3]||''; document.getElementById(p+'-s').value = a[4]||''; };
                         if(sp.meals.bf) sv('bf', sp.meals.bf); if(sp.meals.lu) sv('lu', sp.meals.lu); if(sp.meals.dn) sv('dn', sp.meals.dn); if(sp.meals.sn) sv('sn', sp.meals.sn); }
