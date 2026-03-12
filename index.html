@@ -117,7 +117,6 @@
         .modal-grid input { padding: 8px; border: 1px solid #ccc; border-radius: 5px; font-size: 1em; margin-top: 3px; }
         .modal-btn-row { display: flex; gap: 10px; }
         
-        /* 今回追加したCSS */
         .summary-val { font-size: 0.9em; color: #27ae60; font-weight: bold; margin-left: auto; margin-right: 10px; }
     </style>
 </head>
@@ -331,6 +330,7 @@
                     <div id="sn-log" class="food-log-container"></div>
                     <div class="meal-grid"><div>Kcal</div><div>P(g)</div><div>F(g)</div><div>C(g)</div><div>塩(g)</div><input type="number" id="sn-cal" oninput="calcAll()"><input type="number" id="sn-p" oninput="calcAll()"><input type="number" id="sn-f" oninput="calcAll()"><input type="number" id="sn-c" oninput="calcAll()"><input type="number" id="sn-s" oninput="calcAll()"></div>
                 </details>
+
                 <div style="background: #fdfefe; padding: 10px; border: 1px solid #bdc3c7; border-radius: 8px; margin-top: 10px; font-size: 0.9em;">
                     <strong>📋 本日の摂取合計</strong><br>
                     <span id="total-kcal" style="font-size:1.2em; font-weight:bold; color:#d35400;">0</span> kcal<br>
@@ -351,6 +351,10 @@
                     <div class="pfc-item">
                         <div class="pfc-label"><span>🍚 炭水化物 (C)</span> <span id="c-text">0 / 0 g</span></div>
                         <div class="pfc-bar-bg"><div id="c-bar" class="pfc-bar-fg" style="background:#3498db; width:0%;"></div></div>
+                    </div>
+                    <div class="pfc-item">
+                        <div class="pfc-label"><span>🧂 塩分</span> <span id="s-text">0 / 7.0 g</span></div>
+                        <div class="pfc-bar-bg"><div id="s-bar" class="pfc-bar-fg" style="background:#95a5a6; width:0%;"></div></div>
                     </div>
                     
                     <div style="text-align:center; font-size:0.8em; color:#7f8c8d; margin-top:5px;">目標摂取カロリー: <strong id="target-cal-display">0</strong> kcal</div>
@@ -1006,7 +1010,12 @@ ${getPersonaPrompt()}
                 document.getElementById('f-text').innerText = `${tF.toFixed(1)} / ${Math.round(targetF)} g`; document.getElementById('f-bar').style.width = targetF > 0 ? Math.min(100, (tF / targetF) * 100) + '%' : '0%';
                 document.getElementById('c-text').innerText = `${tC.toFixed(1)} / ${Math.round(targetC)} g`; document.getElementById('c-bar').style.width = targetC > 0 ? Math.min(100, (tC / targetC) * 100) + '%' : '0%';
 
-                // ★追加箇所：ヘッダー合計の計算と反映
+                // ★追加箇所：塩分グラフの更新
+                if(document.getElementById('s-text')) {
+                    document.getElementById('s-text').innerText = `${tS.toFixed(1)} / 7.0 g`; 
+                    document.getElementById('s-bar').style.width = Math.min(100, (tS / 7.0) * 100) + '%';
+                }
+
                 const displayItem = document.getElementById('header-display-item') ? document.getElementById('header-display-item').value : 'kcal';
                 const propMap = { kcal: 'kcal', p: 'p', f: 'f', c: 'c', s: 's' };
                 const unitMap = { kcal: 'kcal', p: 'g', f: 'g', c: 'g', s: 'g' };
@@ -1019,7 +1028,6 @@ ${getPersonaPrompt()}
                 });
 
                 const cm = { bf: [getVal('bf-cal'), getVal('bf-p'), getVal('bf-f'), getVal('bf-c'), getVal('bf-s')], lu: [getVal('lu-cal'), getVal('lu-p'), getVal('lu-f'), getVal('lu-c'), getVal('lu-s')], dn: [getVal('dn-cal'), getVal('dn-p'), getVal('dn-f'), getVal('dn-c'), getVal('dn-s')], sn: [getVal('sn-cal'), getVal('sn-p'), getVal('sn-f'), getVal('sn-c'), getVal('sn-s')] };
-                // ★追加箇所：displayItem を保存内容に追加
                 localStorage.setItem('userProfileV7', JSON.stringify({realname: real, nickname: nick, weight: w, height: h, dob: dobStr, gender: g, targetSteps: targetSteps, goalMode: goalMode, meals: cm, todayLogs: todayFoodLogs, steps: steps, lastDate: new Date().toLocaleDateString(), bmr: bmr, displayItem: displayItem}));
             } catch(e) { console.error(e); }
         };
@@ -1098,7 +1106,6 @@ ${getPersonaPrompt()}
                     if (sp.dob) document.getElementById('dob-input').value = sp.dob;
                     if (sp.targetSteps) document.getElementById('target-steps-input').value = sp.targetSteps;
                     if (sp.goalMode) document.getElementById('goal-mode').value = sp.goalMode;
-                    // ★追加箇所：表示項目の復元
                     if (sp.displayItem && document.getElementById('header-display-item')) document.getElementById('header-display-item').value = sp.displayItem;
 
                     if (sp.meals) { const sv = (p, a) => { document.getElementById(p+'-cal').value = a[0]||''; document.getElementById(p+'-p').value = a[1]||''; document.getElementById(p+'-f').value = a[2]||''; document.getElementById(p+'-c').value = a[3]||''; document.getElementById(p+'-s').value = a[4]||''; };
@@ -1161,7 +1168,6 @@ ${getPersonaPrompt()}
                 document.body.addEventListener('click', requestWakeLock);
             } catch(e) {}
 
-            // ★変更箇所：グラフの切り替え機能に「歩数」を追加し、BMI等を削除
             window.renderGraph = function() {
                 try {
                     let history = JSON.parse(localStorage.getItem('walkingHistory')) || []; let graphData = [...history].reverse(); let labels = graphData.map(item => item.date);
@@ -1185,7 +1191,6 @@ ${getPersonaPrompt()}
                 } catch(e) {}
             };
 
-            // ★変更箇所：表示順の変更と、直近1週間の折りたたみ機能を実装
             window.displayHistory = function() {
                 try { 
                     const history = JSON.parse(localStorage.getItem('walkingHistory')) || [];
